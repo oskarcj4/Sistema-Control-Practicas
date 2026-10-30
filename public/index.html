@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso - Sistema Control Prácticas</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    
+    <!-- TARJETA DE INICIO DE SESIÓN -->
+    <div class="card" id="loginCard">
+      <h2>Iniciar Sesión</h2>
+      <p class="subtitle">Ingresa tus credenciales para acceder al sistema.</p>
+
+      <div id="alertBox" class="alert hidden"></div>
+
+      <form id="loginForm">
+        <div class="input-group">
+          <i class="fa-solid fa-user input-icon"></i>
+          <input type="text" id="loginIdentificador" name="identificador" placeholder="Correo o Username" required autocomplete="username">
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-lock input-icon"></i>
+          <input type="password" id="loginPassword" name="contrasena" placeholder="Contraseña" required autocomplete="current-password">
+          <i class="fa-solid fa-eye toggle-password" id="toggleLoginPassword"></i>
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn btn-primary">Ingresar al Sistema</button>
+      </form>
+
+      <div class="card-footer">
+        <p>¿No tienes una cuenta? <a href="#" id="showRegister">Crear Cuenta</a></p>
+      </div>
+    </div>
+
+    <!-- TARJETA DE REGISTRO -->
+    <div class="card hidden" id="registerCard">
+      <h2>Crear Cuenta</h2>
+      <p class="subtitle">Regístrate para comenzar la gestión de tus prácticas.</p>
+
+      <div id="alertBoxReg" class="alert hidden"></div>
+
+      <form id="registerForm">
+        <div class="input-group">
+          <i class="fa-solid fa-at input-icon"></i>
+          <input type="text" id="regUsername" name="username" placeholder="Nombre de usuario (Username)" required>
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-user input-icon"></i>
+          <input type="text" id="regNombre" name="nombre" placeholder="Nombre" required>
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-user input-icon"></i>
+          <input type="text" id="regApellido" name="apellido" placeholder="Apellido" required>
+        </div>
+
+        <!-- DESPLEGABLE DE INSTITUCIÓN -->
+        <div class="input-group">
+          <i class="fa-solid fa-building input-icon"></i>
+          <select id="regInstitucion" name="institucion_id">
+            <option value="" selected>Selecciona tu Institución (Opcional)</option>
+          </select>
+        </div>
+
+        <!-- DESPLEGABLE DE CARRERA -->
+        <div class="input-group">
+          <i class="fa-solid fa-graduation-cap input-icon"></i>
+          <select id="regCarrera" name="carrera_id">
+            <option value="" selected>Selecciona tu Carrera (Opcional)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-id-card input-icon"></i>
+          <input type="text" id="regCarnet" name="carnet" placeholder="Carnet / Cédula" required>
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-envelope input-icon"></i>
+          <input type="email" id="regCorreo" name="email" placeholder="Correo Electrónico" required>
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-phone input-icon"></i>
+          <input type="tel" id="regTelefono" name="telefono" placeholder="Teléfono">
+        </div>
+
+        <div class="input-group">
+          <i class="fa-solid fa-lock input-icon"></i>
+          <input type="password" id="regPassword" name="password" placeholder="Contraseña (mínimo 8 caracteres)" minlength="8" required autocomplete="new-password">
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="terms" required>
+          <label for="terms">Acepto los Términos y Condiciones</label>
+        </div>
+
+        <button type="submit" id="regBtn" class="btn btn-primary">Registrarse</button>
+      </form>
+
+      <div class="card-footer">
+        <p>¿Ya tienes una cuenta? <a href="#" id="showLogin">Volver al Inicio</a></p>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
