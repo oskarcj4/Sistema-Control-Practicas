@@ -67,6 +67,20 @@ class Instituciones {
         }
     }
 
+    public function findAllAcotado(){
+            try {
+            $query = "SELECT id, nombre
+                      FROM instituciones WHERE estado = 1 ORDER BY nombre";
+            $stmt = $this->connection->prepare($query);
+            $stmt->execute();
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $this->response->success($result);
+        } catch (PDOException $e) {
+            Response::error("Error");
+            //Response::debugError($e);
+        }
+    }
+
     # Crear institución
     public function add(array $arrayData) {
         $data = $this->validate($arrayData);

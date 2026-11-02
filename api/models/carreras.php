@@ -7,11 +7,11 @@ class Carreras {
         $this->connection = $connection;
         $this->response = $response;
     }
-    public function findAll(int $institucion_id){
+    public function findAll(){
         try {
             $stmt = $this->connection->prepare("SELECT c.nombre
                             FROM carreras c.estado = 1  AND c.institucion_id = ? ORDER BY i.nombre, c.nombre");
-            $stmt->execute([$institucion_id]);
+            $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
@@ -65,8 +65,7 @@ class Carreras {
             $this->response->error("El ID de institución es invalido");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT c.id, c.institucion_id, i.nombre AS institucion, c.nombre, c.codigo, c.creado_en
-                            FROM carreras c
+            $stmt = $this->connection->prepare("SELECT c.id, c.nombre                            FROM carreras c
                             INNER JOIN instituciones i ON i.id = c.institucion_id
                             WHERE c.estado = 1 AND c.institucion_id = ? ORDER BY c.nombre");
             $stmt->execute([$institucion_id]);
