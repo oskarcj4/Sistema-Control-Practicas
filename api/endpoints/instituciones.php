@@ -3,6 +3,11 @@
 require_once __DIR__ . "/../models/instituciones.php";
 require_once __DIR__ . "/../core/connection.php";
 
+header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Methods: GET, POST, PUT, QUERY, DELETE");
+header("Content-Type: application/json");
+
 $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
@@ -18,14 +23,17 @@ switch ($method) {
     case 'GET':
         $id   = trim($_GET['id'] ?? '');
         $tipo = trim($_GET['tipo'] ?? '');
-
+        $acotado = isset($_GET['acotado']);
         try {
             $institucion = new Instituciones($connection, $response);
             if (!empty($id)) {
                 $institucion->findById((int)$id);
             } elseif (!empty($tipo)) {
                 $institucion->findByTipo($tipo);
-            } else {
+            }elseif($acotado){
+                $institucion->findAllAcotado();
+            }
+             else {
                 $institucion->findAll();
             }
         } catch (\Throwable $th) {
