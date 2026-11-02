@@ -1,0 +1,13 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule \.(sql|env|log|lock|git)$ - [F,L,NC]
+  RewriteRule ^(core|models)(/.*)?$ /SistemaControlPracticas/login [R=302,L,NC]
+
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|webp)$ - [L,NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^$ public/ [L]
+</IfModule>
