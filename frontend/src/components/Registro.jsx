@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-
+import Campo from "../helpers/Campo";
+import claseInput from "../helpers/claseInput";
+import extraerLista from '../helpers/extraerLista';
 const BASE_API = "http://localhost/SistemaControlPracticas/api/endpoints";
 
 const datosIniciales = {
@@ -9,7 +11,6 @@ const datosIniciales = {
   email: "",
   password: "",
   confirmarPassword: "",
-  rol_id: "",
   institucion_id: "",
   carrera_id: "",
   carnet: "",
@@ -18,11 +19,7 @@ const datosIniciales = {
   acepta: false,
 };
 
-function extraerLista(respuesta) {
-  if (Array.isArray(respuesta)) return respuesta;
-  if (respuesta && Array.isArray(respuesta.data)) return respuesta.data;
-  return [];
-}
+
 
 export default function Registro() {
   const [form, setForm] = useState(datosIniciales);
@@ -32,9 +29,8 @@ export default function Registro() {
 
   const [instituciones, setInstituciones] = useState([]);
   const [carreras, setCarreras] = useState([]);
-  const [roles, setRoles] = useState([]);
 
-  const [cargando, setCargando] = useState(true); // instituciones + roles
+  const [cargando, setCargando] = useState(true);
   const [cargandoCarreras, setCargandoCarreras] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -52,20 +48,11 @@ export default function Registro() {
       setInstituciones(extraerLista(datos));
     }
 
-    async function cargarRoles() {
-      const res = await fetch(`${BASE_API}/roles.php`, { signal });
-      if (!res.ok) {
-        throw new Error(`Roles: error ${res.status}`);
-      }
-      const datos = await res.json();
-      setRoles(extraerLista(datos));
-    }
-
     async function cargarDatosIniciales() {
       try {
         setCargando(true);
         setErrorCarga(null);
-        await Promise.all([cargarInstituciones(), cargarRoles()]);
+        await Promise.all([cargarInstituciones()]);
       } catch (err) {
         if (err.name === "AbortError") return;
         setErrorCarga(err.message);
@@ -208,20 +195,20 @@ export default function Registro() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault(); // Evita la recarga de la página
+
+    e.preventDefault();
     setMensaje(null);
 
-    const validacionesErrores = validar(form);
+    const formElement = e.currentTarget;
+    const formData = new FormData(e.currentTarget);
+    const datos = Object.fromEntries(formData);
+
+    const validacionesErrores = validar(datos);
     setErrores(validacionesErrores);
+
     if (Object.keys(validacionesErrores).length > 0) {
       return;
     }
-
-    // El backend espera multipart/form-data ($_POST)
-    const formData = new FormData();
-    Object.entries(form).forEach(([clave, valor]) => {
-      formData.append(clave, valor);
-    });
 
     try {
       setEnviando(true);
@@ -238,7 +225,7 @@ export default function Registro() {
         resultado = {};
       }
 
-      if (!res.ok) {
+      if (!res.ok || (resultado.code !== undefined && resultado.code !== 1)) {
         throw new Error(resultado.message || `Error ${res.status} al procesar el registro`);
       }
 
@@ -338,18 +325,6 @@ export default function Registro() {
           />
         </Campo>
       </div>
-
-      <Campo etiqueta="Rol">
-        <select name="rol_id" value={form.rol_id} onChange={handleChange} className={claseInput()}>
-          <option value="">Selecciona un rol</option>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.nombre}
-            </option>
-          ))}
-        </select>
-      </Campo>
-
       <Campo etiqueta="Institución / Empresa">
         <select
           name="institucion_id"
@@ -432,20 +407,4 @@ export default function Registro() {
       </button>
     </form>
   );
-}
-
-function Campo({ etiqueta, error, children }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{etiqueta}</span>
-      {children}
-      {error && <span className="mt-1 block text-sm text-red-600">{error}</span>}
-    </label>
-  );
-}
-
-function claseInput(error) {
-  return `w-full rounded-lg border px-3 py-2 outline-none transition focus:ring-2 ${
-    error ? "border-red-400 focus:ring-red-200" : "border-slate-300 focus:ring-indigo-200"
-  }`;
 }

@@ -3,7 +3,6 @@
 class Usuarios {
     private Connection $connection;
     private Response $response;
-
     private const ESTADOS_CUENTA = ['activo', 'inactivo', 'suspendido'];
 
     public function __construct(Connection $connection, Response $response){
@@ -124,6 +123,12 @@ class Usuarios {
 
     # Crear usuario
     public function add(array $arrayData) {
+        // Autoasignar rol si no se envió desde el registro (rol 1: estudiante)
+        $ROL_DEFAULT = 1;
+        if (empty($arrayData["rol_id"])) {
+            $arrayData["rol_id"] = $ROL_DEFAULT;
+        }
+
         $data = $this->validate($arrayData);
         $password = $arrayData["password"] ?? '';
 
