@@ -232,6 +232,9 @@ export default function Registro({ onCambiarVista }) {
       setMensaje({ tipo: "ok", texto: resultado.message || "Usuario registrado con éxito" });
       setForm(datosIniciales);
       setErrores({});
+      setTimeout(() => {
+        onCambiarVista()}, 1800);
+
     } catch (err) {
       setMensaje({ tipo: "error", texto: err.message });
     } finally {

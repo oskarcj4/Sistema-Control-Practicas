@@ -9,7 +9,7 @@ const datosIniciales = {
   contrasena: "",
 };
 
-export default function Login({ onCambiarVista }) {
+export default function Login({ onCambiarVista, onLoginExitoso }) {
   const [form, setForm] = useState(datosIniciales);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState(null);
@@ -86,6 +86,9 @@ export default function Login({ onCambiarVista }) {
       });
       setForm(datosIniciales);
       setErrores({});
+      setTimeout(() => {
+        onLoginExitoso(resultado.data)
+      }, 1800)
     } catch (err) {
       setMensaje({ tipo: "error", texto: err.message });
     } finally {
