@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const BASE_API = "/SistemaControlPracticas/api/endpoints";
+const BASE_API = "http://localhost/SistemaControlPracticas/api/endpoints";
 
 const datosIniciales = {
   username: "",
@@ -18,7 +18,6 @@ const datosIniciales = {
   acepta: false,
 };
 
-// Acepta tanto [..] como { data: [..] }
 function extraerLista(respuesta) {
   if (Array.isArray(respuesta)) return respuesta;
   if (respuesta && Array.isArray(respuesta.data)) return respuesta.data;
@@ -39,9 +38,7 @@ export default function Registro() {
   const [cargandoCarreras, setCargandoCarreras] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
-  // ---------------------------------------------------------------
-  // Efecto 1: carga inicial de instituciones (acotadas) y roles
-  // ---------------------------------------------------------------
+
   useEffect(() => {
     const controlador = new AbortController();
     const { signal } = controlador;

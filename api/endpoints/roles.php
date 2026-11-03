@@ -12,7 +12,7 @@ $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
-# PHP no llena $_PUT / $_DELETE: se leen del cuerpo (x-www-form-urlencoded)
+
 if ($method === 'PUT') {
     parse_str(file_get_contents("php://input"), $_PUT);
 } elseif ($method === 'DELETE') {

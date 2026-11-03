@@ -12,7 +12,7 @@ class Roles {
     # Mostrar todos los roles
     public function findAll(){
         try {
-            $query = "SELECT id, nombre, descripcion, creado_en FROM roles WHERE estado = 1 ORDER BY id";
+            $query = "SELECT id, nombre, descripcion, creado_en FROM roles ORDER BY id";
             $stmt = $this->connection->prepare($query);
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -29,7 +29,7 @@ class Roles {
             $this->response->error("El ID es invalido");
         }
         try {
-            $query = "SELECT id, nombre, descripcion, creado_en FROM roles WHERE id = ? AND estado = 1";
+            $query = "SELECT id, nombre, descripcion, creado_en FROM roles WHERE id = ?";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -70,7 +70,7 @@ class Roles {
             $this->response->success("Rol registrado con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe un rol con ese nombre (puede estar inactivo)");
+                $this->response->error("Ya existe un rol con ese nombre");
             }
             Response::error("Error");
             //Response::debugError($e);
@@ -96,7 +96,7 @@ class Roles {
         }
 
         try {
-            $query = "UPDATE roles SET nombre = ?, descripcion = ? WHERE id = ? AND estado = 1";
+            $query = "UPDATE roles SET nombre = ?, descripcion = ? WHERE id = ?";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$nombre, $descripcion !== '' ? $descripcion : null, $id]);
 
@@ -107,21 +107,21 @@ class Roles {
             $this->response->success("Rol actualizado correctamente");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe un rol con ese nombre (puede estar inactivo)");
+                $this->response->error("Ya existe un rol con ese nombre");
             }
             Response::error("Error");
             //Response::debugError($e);
         }
     }
 
-    # Eliminar rol (borrado lógico, falla si hay usuarios activos con este rol)
+    # Eliminar rol (falla si hay usuarios activos con este rol)
     public function delete(int $id){
         if ($id <= 0) {
             $this->response->error("El ID es invalido");
         }
 
         try {
-            $query = "SELECT COUNT(*) FROM usuarios WHERE rol_id = ? AND estado = 1";
+            $query = "SELECT COUNT(*) FROM usuarios WHERE rol_id = ? AND estado = 'activo'";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
 
@@ -129,12 +129,12 @@ class Roles {
                 $this->response->error("No se puede eliminar: hay usuarios con este rol");
             }
 
-            $query = "UPDATE roles SET estado = 0 WHERE id = ? AND estado = 1";
+            $query = "DELETE FROM roles WHERE id = ?";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID o ya esta inactivo.");
+                $this->response->error("No se encontro el ID.");
             }
 
             $this->response->success("Rol eliminado con éxito");

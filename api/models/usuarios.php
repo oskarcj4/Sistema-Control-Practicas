@@ -4,7 +4,7 @@ class Usuarios {
     private Connection $connection;
     private Response $response;
 
-    private const ESTADOS_CUENTA = ['activo', 'suspendido'];
+    private const ESTADOS_CUENTA = ['activo', 'inactivo', 'suspendido'];
 
     public function __construct(Connection $connection, Response $response){
         $this->connection = $connection;
@@ -19,12 +19,12 @@ class Usuarios {
                                    u.institucion_id, i.nombre AS institucion,
                                    u.carrera_id, c.nombre AS carrera,
                                    u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado_cuenta, u.fecha_registro
+                                   u.autorizado_publicar, u.estado, u.fecha_registro
                             FROM usuarios u
                             INNER JOIN roles r ON r.id = u.rol_id
                             LEFT JOIN instituciones i ON i.id = u.institucion_id
                             LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 1 ORDER BY u.apellido, u.nombre");
+                            WHERE u.estado = 'activo' ORDER BY u.apellido, u.nombre");
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -45,12 +45,12 @@ class Usuarios {
                                    u.institucion_id, i.nombre AS institucion,
                                    u.carrera_id, c.nombre AS carrera,
                                    u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado_cuenta, u.fecha_registro
+                                   u.autorizado_publicar, u.estado, u.fecha_registro
                             FROM usuarios u
                             INNER JOIN roles r ON r.id = u.rol_id
                             LEFT JOIN instituciones i ON i.id = u.institucion_id
                             LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 1 AND u.id = ?");
+                            WHERE u.estado = 'activo' AND u.id = ?");
             $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -76,12 +76,12 @@ class Usuarios {
                                    u.institucion_id, i.nombre AS institucion,
                                    u.carrera_id, c.nombre AS carrera,
                                    u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado_cuenta, u.fecha_registro
+                                   u.autorizado_publicar, u.estado, u.fecha_registro
                             FROM usuarios u
                             INNER JOIN roles r ON r.id = u.rol_id
                             LEFT JOIN instituciones i ON i.id = u.institucion_id
                             LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 1 AND u.email = ?");
+                            WHERE u.estado = 'activo' AND u.email = ?");
             $stmt->execute([$email]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -107,12 +107,12 @@ class Usuarios {
                                    u.institucion_id, i.nombre AS institucion,
                                    u.carrera_id, c.nombre AS carrera,
                                    u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado_cuenta, u.fecha_registro
+                                   u.autorizado_publicar, u.estado, u.fecha_registro
                             FROM usuarios u
                             INNER JOIN roles r ON r.id = u.rol_id
                             LEFT JOIN instituciones i ON i.id = u.institucion_id
                             LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 1 AND u.rol_id = ? ORDER BY u.apellido, u.nombre");
+                            WHERE u.estado = 'activo' AND u.rol_id = ? ORDER BY u.apellido, u.nombre");
             $stmt->execute([$rol_id]);
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -134,12 +134,12 @@ class Usuarios {
         $cifrada = password_hash($password, PASSWORD_DEFAULT);
 
         try {
-            $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, institucion_id, carrera_id, carnet, telefono, biografia)
+            $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, rol_id, institucion_id, carrera_id, carnet, telefono, biografia)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([
                 $data['username'], $data['nombre'], $data['apellido'], $data['email'], $cifrada,
-                $data['institucion_id'], $data['carrera_id'],
+                $data['rol_id'], $data['institucion_id'], $data['carrera_id'],
                 $data['carnet'], $data['telefono'], $data['biografia']
             ]);
 
@@ -174,8 +174,8 @@ class Usuarios {
 
         try {
             $query = "UPDATE usuarios SET username = ?, nombre = ?, apellido = ?, email = ?, institucion_id = ?,
-                             carrera_id = ?, carnet = ?, telefono = ?, biografia = ?, estado_cuenta = ?
-                      WHERE id = ? AND estado = 1";
+                             carrera_id = ?, carnet = ?, telefono = ?, biografia = ?, estado = ?
+                      WHERE id = ? AND estado = 'activo'";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([
                 $data['username'], $data['nombre'], $data['apellido'], $data['email'],
@@ -204,7 +204,7 @@ class Usuarios {
         }
 
         try {
-            $query = "UPDATE usuarios SET estado = 0 WHERE id = ? AND estado = 1";
+            $query = "UPDATE usuarios SET estado = 'inactivo' WHERE id = ? AND estado = 'activo'";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
 
@@ -261,14 +261,14 @@ class Usuarios {
             $this->response->error("El teléfono no es valido");
         }
 
-        $stmt = $this->connection->prepare("SELECT id FROM roles WHERE id = ? AND estado = 1");
+        $stmt = $this->connection->prepare("SELECT id FROM roles WHERE id = ?");
         $stmt->execute([$rol_id]);
         if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
             $this->response->error("El rol no existe");
         }
 
         if ($institucion_id > 0) {
-            $stmt = $this->connection->prepare("SELECT id FROM instituciones WHERE id = ? AND estado = 1");
+            $stmt = $this->connection->prepare("SELECT id FROM instituciones WHERE id = ?");
             $stmt->execute([$institucion_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
                 $this->response->error("La institución no existe");
@@ -276,7 +276,7 @@ class Usuarios {
         }
 
         if ($carrera_id > 0) {
-            $stmt = $this->connection->prepare("SELECT institucion_id FROM carreras WHERE id = ? AND estado = 1");
+            $stmt = $this->connection->prepare("SELECT institucion_id FROM carreras WHERE id = ?");
             $stmt->execute([$carrera_id]);
             $carrera = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$carrera) {

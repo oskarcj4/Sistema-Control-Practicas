@@ -15,7 +15,7 @@ class Instituciones {
     public function findAll(){
         try {
             $query = "SELECT id, nombre, siglas, tipo, contacto_email, sitio_web, creado_en
-                      FROM instituciones WHERE estado = 1 ORDER BY nombre";
+                      FROM instituciones ORDER BY nombre";
             $stmt = $this->connection->prepare($query);
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -33,7 +33,7 @@ class Instituciones {
         }
         try {
             $query = "SELECT id, nombre, siglas, tipo, contacto_email, sitio_web, creado_en
-                      FROM instituciones WHERE id = ? AND estado = 1";
+                      FROM instituciones WHERE id = ?";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -56,7 +56,7 @@ class Instituciones {
         }
         try {
             $query = "SELECT id, nombre, siglas, tipo, contacto_email, sitio_web, creado_en
-                      FROM instituciones WHERE tipo = ? AND estado = 1 ORDER BY nombre";
+                      FROM instituciones WHERE tipo = ? ORDER BY nombre";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$tipo]);
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -70,7 +70,7 @@ class Instituciones {
     public function findAllAcotado(){
             try {
             $query = "SELECT id, nombre
-                      FROM instituciones WHERE estado = 1 ORDER BY nombre";
+                      FROM instituciones ORDER BY nombre";
             $stmt = $this->connection->prepare($query);
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -97,7 +97,7 @@ class Instituciones {
             $this->response->success("Institución registrada con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe una institución con ese nombre (puede estar inactiva)");
+                $this->response->error("Ya existe una institución con ese nombre");
             }
             Response::error("Error");
             //Response::debugError($e);
@@ -115,7 +115,7 @@ class Instituciones {
         $data = $this->validate($arrayData);
 
         try {
-            $query = "UPDATE instituciones SET nombre = ?, siglas = ?, tipo = ?, contacto_email = ?, sitio_web = ? WHERE id = ? AND estado = 1";
+            $query = "UPDATE instituciones SET nombre = ?, siglas = ?, tipo = ?, contacto_email = ?, sitio_web = ? WHERE id = ?";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$data['nombre'], $data['siglas'], $data['tipo'], $data['contacto_email'], $data['sitio_web'], $id]);
 
@@ -126,41 +126,30 @@ class Instituciones {
             $this->response->success("Institución actualizada correctamente");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe una institución con ese nombre (puede estar inactiva)");
+                $this->response->error("Ya existe una institución con ese nombre");
             }
             Response::error("Error");
             //Response::debugError($e);
         }
     }
 
-    # Eliminar institución (borrado lógico, también desactiva sus carreras)
+    # Eliminar institución (las carreras se eliminan por CASCADE de la FK)
     public function delete(int $id){
         if ($id <= 0) {
             $this->response->error("El ID es invalido");
         }
 
         try {
-            $this->connection->beginTransaction();
-
-            $query = "UPDATE instituciones SET estado = 0 WHERE id = ? AND estado = 1";
+            $query = "DELETE FROM instituciones WHERE id = ?";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->connection->rollBack();
-                $this->response->error("No se encontro el ID o ya esta inactivo.");
+                $this->response->error("No se encontro el ID.");
             }
-
-            $stmt = $this->connection->prepare("UPDATE carreras SET estado = 0 WHERE institucion_id = ? AND estado = 1");
-            $stmt->execute([$id]);
-
-            $this->connection->commit();
 
             $this->response->success("Institución eliminada con éxito");
         } catch (PDOException $e) {
-            if ($this->connection->inTransaction()) {
-                $this->connection->rollBack();
-            }
             Response::error("Error");
             //Response::debugError($e);
         }
