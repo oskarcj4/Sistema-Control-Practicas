@@ -21,7 +21,7 @@ const datosIniciales = {
 
 
 
-export default function Registro() {
+export default function Registro({ onCambiarVista }) {
   const [form, setForm] = useState(datosIniciales);
   const [errores, setErrores] = useState({}); // errores de validación del formulario
   const [errorCarga, setErrorCarga] = useState(null); // errores al cargar listas
@@ -401,10 +401,21 @@ export default function Registro() {
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
         {enviando ? "Creando cuenta..." : "Crear cuenta"}
       </button>
+
+      <p className="text-center text-sm text-slate-600">
+        ¿Ya tienes una cuenta?{" "}
+        <button
+          type="button"
+          onClick={onCambiarVista}
+          className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline cursor-pointer"
+        >
+          Inicia sesión
+        </button>
+      </p>
     </form>
   );
 }

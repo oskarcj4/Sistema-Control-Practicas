@@ -31,8 +31,8 @@ class Login {
             $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash, u.rol_id,
                              GROUP_CONCAT(ar.id_rol) AS roles_extra
                       FROM usuarios u
-                      LEFT JOIN asignaciones_roles ar ON ar.id_usuario = u.id AND ar.estado = 1
-                      WHERE $columna = ? AND u.estado = 1 AND u.estado_cuenta = 'activo'
+                      LEFT JOIN asignaciones_roles ar ON ar.id_usuario = u.id
+                      WHERE $columna = ? AND u.estado = 'activo'
                       GROUP BY u.id"
                       ;
             $stmt = $this->connection->prepare($query);

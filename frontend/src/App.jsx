@@ -1,8 +1,17 @@
+import { useState } from "react";
 import Registro from "./components/Registro";
-export default function App(){
+import Login from "./components/Login";
+
+export default function App() {
+  const [vista, setVista] = useState("registro");
+
   return (
     <div className="min-h-screen bg-slate-100 py-10">
-      <Registro/>
+      {vista === "login" ? (
+        <Login onCambiarVista={() => setVista("registro")} />
+      ) : (
+        <Registro onCambiarVista={() => setVista("login")} />
+      )}
     </div>
   );
 }
