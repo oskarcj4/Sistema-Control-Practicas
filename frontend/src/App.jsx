@@ -1,15 +1,15 @@
 import { useContext, useState } from "react";
+import Login from "./components/Login";
 import MainPage from "./components/MainPage";
 import Registro from "./components/Registro";
 import { AuthContext } from "./context/AuthContext";
 
-
 export default function App() {
   const [vista, setVista] = useState("login");
-  const [usuario, cargandos] = useContext(AuthContext);
+  const { usuario, cargando } = useContext(AuthContext);
 
-  if(cargando){
-    return <p className="py-10 text-center text-slate-600">Cargando sesion...</p>
+  if (cargando) {
+    return <p className="py-10 text-center text-slate-600">Cargando sesión...</p>;
   }
 
   return (

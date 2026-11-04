@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { apiFetch } from "../api/generic-api";
+import { AuthContext } from "../context/AuthContext";
 import Campo from "../helpers/Campo";
 import claseInput from "../helpers/claseInput";
 
@@ -9,6 +10,7 @@ const datosIniciales = {
 };
 
 export default function Login({ onCambiarVista, onLoginExitoso }) {
+  const { login } = useContext(AuthContext);
   const [form, setForm] = useState(datosIniciales);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState(null);
@@ -75,8 +77,9 @@ export default function Login({ onCambiarVista, onLoginExitoso }) {
       setForm(datosIniciales);
       setErrores({});
       setTimeout(() => {
-        onLoginExitoso(resultado.data)
-      }, 1800)
+        if (login) login(resultado.data);
+        if (onLoginExitoso) onLoginExitoso(resultado.data);
+      }, 1800);
     } catch (err) {
       setMensaje({ tipo: "error", texto: err.message });
     } finally {

@@ -1,4 +1,11 @@
-export default function MainPage({ usuario, onLogout }) {
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+
+export default function MainPage({ usuario: usuarioProp, onLogout: onLogoutProp }) {
+  const { usuario: usuarioContext, logout } = useContext(AuthContext);
+  const usuario = usuarioProp || usuarioContext;
+  const onLogout = onLogoutProp || logout;
+
   return (
     <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow">
       <div className="flex items-center justify-between border-b pb-4">

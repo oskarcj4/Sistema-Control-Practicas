@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { BASE_API } from "../api/generic-api";
+import { RegisterContext } from "../context/RegisterContext";
 import Campo from "../helpers/Campo";
 import claseInput from "../helpers/claseInput";
-import extraerLista from '../helpers/extraerLista';
+
 
 const datosIniciales = {
   username: "",
@@ -22,104 +23,12 @@ const datosIniciales = {
 
 
 export default function Registro({ onCambiarVista }) {
+  const { cargandoInstituciones, carreras, instituciones, cargandoCarreras, errorCarga, setInstitucionId } = useContext(RegisterContext)
   const [form, setForm] = useState(datosIniciales);
   const [errores, setErrores] = useState({}); // errores de validación del formulario
-  const [errorCarga, setErrorCarga] = useState(null); // errores al cargar listas
-  const [mensaje, setMensaje] = useState(null); // { tipo: "ok" | "error", texto }
-
-  const [instituciones, setInstituciones] = useState([]);
-  const [carreras, setCarreras] = useState([]);
-
-  const [cargando, setCargando] = useState(true);
-  const [cargandoCarreras, setCargandoCarreras] = useState(false);
+  const [mensaje, setMensaje] = useState(null); // { tipo: "ok" | "error", texto } useState(false);
   const [enviando, setEnviando] = useState(false);
 
-
-  useEffect(() => {
-    const controlador = new AbortController();
-    const { signal } = controlador;
-
-    async function cargarInstituciones() {
-      const res = await fetch(`${BASE_API}/instituciones.php?acotado=1`, { signal });
-      if (!res.ok) {
-        throw new Error(`Instituciones: error ${res.status}`);
-      }
-      const datos = await res.json();
-      setInstituciones(extraerLista(datos));
-    }
-
-    async function cargarDatosIniciales() {
-      try {
-        setCargando(true);
-        setErrorCarga(null);
-        await Promise.all([cargarInstituciones()]);
-      } catch (err) {
-        if (err.name === "AbortError") return;
-        setErrorCarga(err.message);
-      } finally {
-        if (!signal.aborted) {
-          setCargando(false);
-        }
-      }
-    }
-
-    cargarDatosIniciales();
-
-    return () => controlador.abort();
-  }, []);
-
-  useEffect(() => {
-    if (!form.institucion_id) {
-      setCarreras([]);
-      return;
-    }
-
-    const controlador = new AbortController();
-    const { signal } = controlador;
-
-    async function cargarCarreras() {
-      try {
-        setCargandoCarreras(true);
-        setErrorCarga(null);
-        const res = await fetch(
-          `${BASE_API}/carreras.php?institucion_id=${encodeURIComponent(form.institucion_id)}`,
-          { signal }
-        );
-        if (!res.ok) {
-          throw new Error(`Carreras: error ${res.status}`);
-        }
-        const datos = await res.json();
-        setCarreras(extraerLista(datos));
-      } catch (err) {
-        if (err.name === "AbortError") return;
-        setCarreras([]);
-        setErrorCarga(err.message);
-      } finally {
-        if (!signal.aborted) {
-          setCargandoCarreras(false);
-        }
-      }
-    }
-
-    cargarCarreras();
-
-    return () => controlador.abort();
-  }, [form.institucion_id]);
-
-
-  useEffect(() => {
-    setErrores((prev) => {
-      if (Object.keys(prev).length === 0) return prev;
-      const actualizados = { ...prev };
-      if (form.password && form.password === form.confirmarPassword) {
-        delete actualizados.confirmarPassword;
-      }
-      if (form.username && form.username.trim().length >= 3) {
-        delete actualizados.username;
-      }
-      return actualizados;
-    });
-  }, [form.password, form.confirmarPassword, form.username]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -131,6 +40,7 @@ export default function Registro({ onCambiarVista }) {
       // Al cambiar de institución, la carrera elegida ya no es válida
       if (name === "institucion_id") {
         siguiente.carrera_id = "";
+        setInstitucionId(value);
       }
       return siguiente;
     });
@@ -242,7 +152,7 @@ export default function Registro({ onCambiarVista }) {
     }
   }
 
-  if (cargando) {
+  if (cargandoInstituciones) {
     return <p className="mx-auto max-w-lg p-6 text-center text-slate-600">Cargando formulario...</p>;
   }
 
