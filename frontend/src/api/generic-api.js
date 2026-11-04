@@ -10,6 +10,7 @@ export function setCsrfToken(token) {
   csrfToken = token || null;
 }
 
+// Signal permite utilizar Abort Controller, para cancelar peticiones HTTP.
 export async function apiFetch(ruta, { method = "GET", body, signal } = {}) {
   const metodo = method.toUpperCase();
   const headers = {};
@@ -48,7 +49,8 @@ export async function apiFetch(ruta, { method = "GET", body, signal } = {}) {
     throw error;
   }
 
-  // Si el backend manda un token nuevo, se actualiza
+  // El backend manda el CROSS-SITE-REQUEST-FORGERY no lo almacenamos en memoria, si no el backend
+  // lo manda en la peticion.
   if (resultado.data && resultado.data.csrfToken) {
     setCsrfToken(resultado.data.csrfToken);
   }
