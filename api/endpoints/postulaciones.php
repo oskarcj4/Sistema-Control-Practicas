@@ -2,6 +2,7 @@
 
 require_once __DIR__ . "/../models/postulaciones.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -12,93 +13,66 @@ $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
-# PHP no llena $_PUT / $_DELETE: se leen del cuerpo (x-www-form-urlencoded)
-if ($method === 'PUT') {
-    parse_str(file_get_contents("php://input"), $_PUT);
-} elseif ($method === 'DELETE') {
-    parse_str(file_get_contents("php://input"), $_DELETE);
-}
+# POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
-switch ($method) {
-    case 'GET':
-        $id             = trim($_GET['id'] ?? '');
-        $estudiante_id  = trim($_GET['estudiante_id'] ?? '');
-        $oportunidad_id = trim($_GET['oportunidad_id'] ?? '');
+try {
+    $postulacion = new Postulaciones($connection, $response);
 
-        try {
-            $postulacion = new Postulaciones($connection, $response);
-            if (!empty($id)) {
-                $postulacion->findById((int)$id);
-            } elseif (!empty($estudiante_id)) {
-                $postulacion->findByEstudiante((int)$estudiante_id);
-            } elseif (!empty($oportunidad_id)) {
-                $postulacion->findByOportunidad((int)$oportunidad_id);
+    switch ($method) {
+        case 'GET':
+            $id             = (int)($_GET['id'] ?? 0);
+            $estudiante_id  = (int)($_GET['estudiante_id'] ?? 0);
+            $oportunidad_id = (int)($_GET['oportunidad_id'] ?? 0);
+
+            if ($id > 0) {
+                $postulacion->findById($id);
+            } elseif ($estudiante_id > 0) {
+                $postulacion->findByEstudiante($estudiante_id);
+            } elseif ($oportunidad_id > 0) {
+                $postulacion->findByOportunidad($oportunidad_id);
             } else {
                 $postulacion->findAll();
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'POST':
-        $postulacionData = [
-            'oportunidad_id'          => trim($_POST['oportunidad_id'] ?? ''),
-            'estudiante_id'           => trim($_POST['estudiante_id'] ?? ''),
-            'cv_url'                  => trim($_POST['cv_url'] ?? ''),
-            'constancia_estudios_url' => trim($_POST['constancia_estudios_url'] ?? ''),
-            'mensaje_presentacion'    => trim($_POST['mensaje_presentacion'] ?? '')
-        ];
+        case 'POST':
+            $postulacion->add([
+                'oportunidad_id'          => inputString($data, 'oportunidad_id'),
+                'estudiante_id'           => inputString($data, 'estudiante_id'),
+                'cv_url'                  => inputString($data, 'cv_url'),
+                'constancia_estudios_url' => inputString($data, 'constancia_estudios_url'),
+                'mensaje_presentacion'    => inputString($data, 'mensaje_presentacion')
+            ]);
+            break;
 
-        try {
-            $postulacion = new Postulaciones($connection, $response);
-            $postulacion->add($postulacionData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    case 'PUT':
-        # accion=estado -> el reclutador cambia el estado (queda en historial); sin accion -> el estudiante edita
-        $accion = trim($_PUT['accion'] ?? '');
-
-        try {
-            $postulacion = new Postulaciones($connection, $response);
-            if ($accion === 'estado') {
+        case 'PUT':
+            # accion=estado -> el reclutador cambia el estado (queda en historial); sin accion -> el estudiante edita
+            if (inputString($data, 'accion') === 'estado') {
                 $postulacion->changeState([
-                    'id'              => trim($_PUT['id'] ?? ''),
-                    'estado_postulacion' => trim($_PUT['estado_postulacion'] ?? ''),
-                    'comentario'      => trim($_PUT['comentario'] ?? ''),
-                    'actualizado_por' => trim($_PUT['actualizado_por'] ?? '')
+                    'id'                 => inputString($data, 'id'),
+                    'estado_postulacion' => inputString($data, 'estado_postulacion'),
+                    'comentario'         => inputString($data, 'comentario'),
+                    'actualizado_por'    => inputString($data, 'actualizado_por')
                 ]);
             } else {
                 $postulacion->update([
-                    'id'                      => trim($_PUT['id'] ?? ''),
-                    'cv_url'                  => trim($_PUT['cv_url'] ?? ''),
-                    'constancia_estudios_url' => trim($_PUT['constancia_estudios_url'] ?? ''),
-                    'mensaje_presentacion'    => trim($_PUT['mensaje_presentacion'] ?? '')
+                    'id'                      => inputString($data, 'id'),
+                    'cv_url'                  => inputString($data, 'cv_url'),
+                    'constancia_estudios_url' => inputString($data, 'constancia_estudios_url'),
+                    'mensaje_presentacion'    => inputString($data, 'mensaje_presentacion')
                 ]);
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'DELETE':
-        $id = (int)($_DELETE['id'] ?? $_GET['id'] ?? 0);
+        case 'DELETE':
+            $postulacion->delete((int)($_GET['id'] ?? 0));
+            break;
 
-        try {
-            $postulacion = new Postulaciones($connection, $response);
-            $postulacion->delete($id);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

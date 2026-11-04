@@ -2,6 +2,7 @@
 
 require_once __DIR__ . "/../models/solicitudes_publicacion.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -12,92 +13,65 @@ $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
-# PHP no llena $_PUT / $_DELETE: se leen del cuerpo (x-www-form-urlencoded)
-if ($method === 'PUT') {
-    parse_str(file_get_contents("php://input"), $_PUT);
-} elseif ($method === 'DELETE') {
-    parse_str(file_get_contents("php://input"), $_DELETE);
-}
+# POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
-switch ($method) {
-    case 'GET':
-        $id         = trim($_GET['id'] ?? '');
-        $usuario_id = trim($_GET['usuario_id'] ?? '');
-        $estado_solicitud = trim($_GET['estado_solicitud'] ?? '');
+try {
+    $solicitud = new SolicitudesPublicacion($connection, $response);
 
-        try {
-            $solicitud = new SolicitudesPublicacion($connection, $response);
-            if (!empty($id)) {
-                $solicitud->findById((int)$id);
-            } elseif (!empty($usuario_id)) {
-                $solicitud->findByUsuario((int)$usuario_id);
-            } elseif (!empty($estado_solicitud)) {
+    switch ($method) {
+        case 'GET':
+            $id               = (int)($_GET['id'] ?? 0);
+            $usuario_id       = (int)($_GET['usuario_id'] ?? 0);
+            $estado_solicitud = trim($_GET['estado_solicitud'] ?? '');
+
+            if ($id > 0) {
+                $solicitud->findById($id);
+            } elseif ($usuario_id > 0) {
+                $solicitud->findByUsuario($usuario_id);
+            } elseif ($estado_solicitud !== '') {
                 $solicitud->findByEstado($estado_solicitud);
             } else {
                 $solicitud->findAll();
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'POST':
-        $solicitudData = [
-            'usuario_id'                   => trim($_POST['usuario_id'] ?? ''),
-            'nombre_organizacion_proyecto' => trim($_POST['nombre_organizacion_proyecto'] ?? ''),
-            'descripcion_actividades'      => trim($_POST['descripcion_actividades'] ?? ''),
-            'documento_respaldo_url'       => trim($_POST['documento_respaldo_url'] ?? '')
-        ];
+        case 'POST':
+            $solicitud->add([
+                'usuario_id'                   => inputString($data, 'usuario_id'),
+                'nombre_organizacion_proyecto' => inputString($data, 'nombre_organizacion_proyecto'),
+                'descripcion_actividades'      => inputString($data, 'descripcion_actividades'),
+                'documento_respaldo_url'       => inputString($data, 'documento_respaldo_url')
+            ]);
+            break;
 
-        try {
-            $solicitud = new SolicitudesPublicacion($connection, $response);
-            $solicitud->add($solicitudData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    case 'PUT':
-        # accion=revisar -> el admin aprueba/rechaza; sin accion -> el solicitante edita su solicitud
-        $accion = trim($_PUT['accion'] ?? '');
-
-        try {
-            $solicitud = new SolicitudesPublicacion($connection, $response);
-            if ($accion === 'revisar') {
+        case 'PUT':
+            # accion=revisar -> el admin aprueba/rechaza; sin accion -> el solicitante edita su solicitud
+            if (inputString($data, 'accion') === 'revisar') {
                 $solicitud->review([
-                    'id'               => trim($_PUT['id'] ?? ''),
-                    'estado_solicitud' => trim($_PUT['estado_solicitud'] ?? ''),
-                    'comentario_admin' => trim($_PUT['comentario_admin'] ?? ''),
-                    'revisado_por'     => trim($_PUT['revisado_por'] ?? '')
+                    'id'               => inputString($data, 'id'),
+                    'estado_solicitud' => inputString($data, 'estado_solicitud'),
+                    'comentario_admin' => inputString($data, 'comentario_admin'),
+                    'revisado_por'     => inputString($data, 'revisado_por')
                 ]);
             } else {
                 $solicitud->update([
-                    'id'                           => trim($_PUT['id'] ?? ''),
-                    'nombre_organizacion_proyecto' => trim($_PUT['nombre_organizacion_proyecto'] ?? ''),
-                    'descripcion_actividades'      => trim($_PUT['descripcion_actividades'] ?? ''),
-                    'documento_respaldo_url'       => trim($_PUT['documento_respaldo_url'] ?? '')
+                    'id'                           => inputString($data, 'id'),
+                    'nombre_organizacion_proyecto' => inputString($data, 'nombre_organizacion_proyecto'),
+                    'descripcion_actividades'      => inputString($data, 'descripcion_actividades'),
+                    'documento_respaldo_url'       => inputString($data, 'documento_respaldo_url')
                 ]);
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'DELETE':
-        $id = (int)($_DELETE['id'] ?? $_GET['id'] ?? 0);
+        case 'DELETE':
+            $solicitud->delete((int)($_GET['id'] ?? 0));
+            break;
 
-        try {
-            $solicitud = new SolicitudesPublicacion($connection, $response);
-            $solicitud->delete($id);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

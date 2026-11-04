@@ -3,6 +3,7 @@
 require_once __DIR__ . "/../models/login.php";
 require_once __DIR__ . "/../core/connection.php";
 require_once __DIR__ . "/../core/auth-middleware.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -16,56 +17,51 @@ if (($_SERVER["REQUEST_METHOD"] ?? '') === 'OPTIONS') {
     exit;
 }
 
-
 $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
-switch ($method) {
-    case 'GET':
-        # Al cargar la página: si la cookie es válida devuelve la sesión y un csrfToken nuevo
-        $auth_data = checkAuth();
-        if ($auth_data === null) {
-            Response::error("Usuario no autenticado", -2);
-        }
+# POST: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
-        Response::success([
-            'id'        => $auth_data['id'],
-            'username'  => $auth_data['username'],
-            'name'      => $auth_data['name'],
-            'roles'     => $auth_data['roles'],
-            'isAdmin'   => $auth_data['isAdmin'],
-            'csrfToken' => csrfToken()
-        ]);
-        break;
+try {
+    switch ($method) {
+        case 'GET':
+            # Al cargar la página: si la cookie es válida devuelve la sesión y un csrfToken nuevo
+            $auth_data = checkAuth();
+            if ($auth_data === null) {
+                Response::error("Usuario no autenticado", -2);
+            }
 
-    case 'POST':
-        $loginData = [
-            'identificador' => trim($_POST['identificador'] ?? ''),
-            'contrasena'    => $_POST['contrasena'] ?? ''
-        ];
+            Response::success([
+                'id'        => $auth_data['id'],
+                'username'  => $auth_data['username'],
+                'name'      => $auth_data['name'],
+                'roles'     => $auth_data['roles'],
+                'isAdmin'   => $auth_data['isAdmin'],
+                'csrfToken' => csrfToken()
+            ]);
+            break;
 
-        try {
+        case 'POST':
             $login = new Login($connection, $response);
-            $login->login($loginData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            $login->login([
+                'identificador' => inputString($data, 'identificador'),
+                # La contraseña no se recorta: los espacios son parte de ella
+                'contrasena'    => is_string($data['contrasena'] ?? null) ? $data['contrasena'] : ''
+            ]);
+            break;
 
-    case 'DELETE':
-        requireAuth();
-
-        try {
+        case 'DELETE':
+            requireAuth();
             $login = new Login($connection, $response);
             $login->logout();
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

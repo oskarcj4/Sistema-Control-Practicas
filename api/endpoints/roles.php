@@ -2,6 +2,7 @@
 
 require_once __DIR__ . "/../models/roles.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -12,73 +13,45 @@ $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
+# POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
-if ($method === 'PUT') {
-    parse_str(file_get_contents("php://input"), $_PUT);
-} elseif ($method === 'DELETE') {
-    parse_str(file_get_contents("php://input"), $_DELETE);
-}
+try {
+    $rol = new Roles($connection, $response);
 
-switch ($method) {
-    case 'GET':
-        $id = trim($_GET['id'] ?? '');
-
-        try {
-            $rol = new Roles($connection, $response);
-            if (!empty($id)) {
-                $rol->findById((int)$id);
+    switch ($method) {
+        case 'GET':
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id > 0) {
+                $rol->findById($id);
             } else {
                 $rol->findAll();
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'POST':
-        $rolData = [
-            'nombre'      => trim($_POST['nombre'] ?? ''),
-            'descripcion' => trim($_POST['descripcion'] ?? '')
-        ];
+        case 'POST':
+            $rol->add([
+                'nombre'      => inputString($data, 'nombre'),
+                'descripcion' => inputString($data, 'descripcion')
+            ]);
+            break;
 
-        try {
-            $rol = new Roles($connection, $response);
-            $rol->add($rolData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+        case 'PUT':
+            $rol->update([
+                'id'          => inputString($data, 'id'),
+                'nombre'      => inputString($data, 'nombre'),
+                'descripcion' => inputString($data, 'descripcion')
+            ]);
+            break;
 
-    case 'PUT':
-        $rolData = [
-            'id'          => trim($_PUT['id'] ?? ''),
-            'nombre'      => trim($_PUT['nombre'] ?? ''),
-            'descripcion' => trim($_PUT['descripcion'] ?? '')
-        ];
+        case 'DELETE':
+            $rol->delete((int)($_GET['id'] ?? 0));
+            break;
 
-        try {
-            $rol = new Roles($connection, $response);
-            $rol->update($rolData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    case 'DELETE':
-        $id = (int)($_DELETE['id'] ?? $_GET['id'] ?? 0);
-
-        try {
-            $rol = new Roles($connection, $response);
-            $rol->delete($id);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

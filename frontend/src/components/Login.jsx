@@ -58,16 +58,17 @@ export default function Login({ onCambiarVista, onLoginExitoso }) {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("identificador", form.identificador.trim());
-    formData.append("contrasena", form.contrasena);
+    const datosLogin = {
+      identificador: form.identificador.trim(),
+      contrasena: form.contrasena,
+    };
 
     try {
       setEnviando(true);
       // apiFetch envía la cookie y guarda el csrfToken que devuelve el backend
       const resultado = await apiFetch("login.php", {
         method: "POST",
-        body: formData,
+        body: datosLogin,
       });
 
       setMensaje({

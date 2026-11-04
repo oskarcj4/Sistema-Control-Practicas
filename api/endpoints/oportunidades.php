@@ -3,6 +3,7 @@
 require_once __DIR__ . "/../models/oportunidades.php";
 require_once __DIR__ . "/../core/connection.php";
 require_once __DIR__ . "/../core/auth-middleware.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -17,100 +18,71 @@ $method     = $_SERVER["REQUEST_METHOD"];
 # requireAuth corta con error si no hay sesión o no tiene el rol, y en métodos de escritura valida el CSRF.
 $auth_data = requireAuth($method === 'GET' ? [] : [2, 3]);
 
+# POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
+try {
+    $oportunidad = new Oportunidades($connection, $response);
 
-# PHP no llena $_PUT / $_DELETE: se leen del cuerpo (x-www-form-urlencoded)
-if ($method === 'PUT') {
-    parse_str(file_get_contents("php://input"), $_PUT);
-} elseif ($method === 'DELETE') {
-    parse_str(file_get_contents("php://input"), $_DELETE);
-}
+    switch ($method) {
+        case 'GET':
+            $id         = (int)($_GET['id'] ?? 0);
+            $creado_por = (int)($_GET['creado_por'] ?? 0);
+            $todas      = trim($_GET['todas'] ?? '');
+            $carrera_id = (int)($_GET['carrera_id'] ?? 0);
+            $modalidad  = trim($_GET['modalidad'] ?? '');
 
-switch ($method) {
-    case 'GET':
-        $id         = trim($_GET['id'] ?? '');
-        $creado_por = trim($_GET['creado_por'] ?? '');
-        $todas      = trim($_GET['todas'] ?? '');
-        $carrera_id = (int)($_GET['carrera_id'] ?? 0);
-        $modalidad  = trim($_GET['modalidad'] ?? '');
-
-        try {
-            $oportunidad = new Oportunidades($connection, $response);
-            if (!empty($id)) {
-                $oportunidad->findById((int)$id);
-            } elseif (!empty($creado_por)) {
-                $oportunidad->findByCreador((int)$creado_por);
+            if ($id > 0) {
+                $oportunidad->findById($id);
+            } elseif ($creado_por > 0) {
+                $oportunidad->findByCreador($creado_por);
             } elseif ($todas === '1') {
                 $oportunidad->findAll();
             } else {
                 $oportunidad->feed($carrera_id, $modalidad);
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'POST':
-        $oportunidadData = [
-            'titulo'            => trim($_POST['titulo'] ?? ''),
-            'descripcion'       => trim($_POST['descripcion'] ?? ''),
-            'requisitos'        => trim($_POST['requisitos'] ?? ''),
-            'institucion_id'    => trim($_POST['institucion_id'] ?? ''),
-            'carrera_id'        => trim($_POST['carrera_id'] ?? ''),
-            'modalidad'         => trim($_POST['modalidad'] ?? 'presencial'),
-            'ubicacion'         => trim($_POST['ubicacion'] ?? ''),
-            'fecha_publicacion' => trim($_POST['fecha_publicacion'] ?? ''),
-            'fecha_cierre'      => trim($_POST['fecha_cierre'] ?? ''),
-            'creado_por'        => $auth_data['id'] # sale de la cookie, no del formulario
-        ];
+        case 'POST':
+            $oportunidad->add([
+                'titulo'            => inputString($data, 'titulo'),
+                'descripcion'       => inputString($data, 'descripcion'),
+                'requisitos'        => inputString($data, 'requisitos'),
+                'institucion_id'    => inputString($data, 'institucion_id'),
+                'carrera_id'        => inputString($data, 'carrera_id'),
+                'modalidad'         => inputString($data, 'modalidad', 'presencial'),
+                'ubicacion'         => inputString($data, 'ubicacion'),
+                'fecha_publicacion' => inputString($data, 'fecha_publicacion'),
+                'fecha_cierre'      => inputString($data, 'fecha_cierre'),
+                'creado_por'        => $auth_data['id'] # sale de la cookie, no del cuerpo
+            ]);
+            break;
 
-        try {
-            $oportunidad = new Oportunidades($connection, $response);
-            $oportunidad->add($oportunidadData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+        case 'PUT':
+            $oportunidad->update([
+                'id'                 => inputString($data, 'id'),
+                'titulo'             => inputString($data, 'titulo'),
+                'descripcion'        => inputString($data, 'descripcion'),
+                'requisitos'         => inputString($data, 'requisitos'),
+                'institucion_id'     => inputString($data, 'institucion_id'),
+                'carrera_id'         => inputString($data, 'carrera_id'),
+                'modalidad'          => inputString($data, 'modalidad', 'presencial'),
+                'ubicacion'          => inputString($data, 'ubicacion'),
+                'fecha_publicacion'  => inputString($data, 'fecha_publicacion'),
+                'fecha_cierre'       => inputString($data, 'fecha_cierre'),
+                'estado_oportunidad' => inputString($data, 'estado_oportunidad', 'activa'),
+                'visto'              => inputString($data, 'visto', '0')
+            ]);
+            break;
 
-    case 'PUT':
-        $oportunidadData = [
-            'id'                => trim($_PUT['id'] ?? ''),
-            'titulo'            => trim($_PUT['titulo'] ?? ''),
-            'descripcion'       => trim($_PUT['descripcion'] ?? ''),
-            'requisitos'        => trim($_PUT['requisitos'] ?? ''),
-            'institucion_id'    => trim($_PUT['institucion_id'] ?? ''),
-            'carrera_id'        => trim($_PUT['carrera_id'] ?? ''),
-            'modalidad'         => trim($_PUT['modalidad'] ?? 'presencial'),
-            'ubicacion'         => trim($_PUT['ubicacion'] ?? ''),
-            'fecha_publicacion' => trim($_PUT['fecha_publicacion'] ?? ''),
-            'fecha_cierre'      => trim($_PUT['fecha_cierre'] ?? ''),
-            'estado_oportunidad' => trim($_PUT['estado_oportunidad'] ?? 'activa'),
-            'visto'             => trim($_PUT['visto'] ?? '0')
-        ];
+        case 'DELETE':
+            $oportunidad->delete((int)($_GET['id'] ?? 0));
+            break;
 
-        try {
-            $oportunidad = new Oportunidades($connection, $response);
-            $oportunidad->update($oportunidadData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    case 'DELETE':
-        $id = (int)($_DELETE['id'] ?? $_GET['id'] ?? 0);
-
-        try {
-            $oportunidad = new Oportunidades($connection, $response);
-            $oportunidad->delete($id);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

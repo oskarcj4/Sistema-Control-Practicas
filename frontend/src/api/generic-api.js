@@ -19,12 +19,13 @@ export async function apiFetch(ruta, { method = "GET", body, signal } = {}) {
     headers["X-CSRF-Token"] = csrfToken;
   }
 
-  let cuerpo = body;
-  // PUT y DELETE: PHP lee el cuerpo con parse_str, así que va como x-www-form-urlencoded
-  if (body && !(body instanceof FormData) && typeof body === "object") {
-    cuerpo = new URLSearchParams(body);
-  } else if (body instanceof FormData && metodo !== "POST") {
-    cuerpo = new URLSearchParams(body);
+  // El backend solo acepta JSON (Content-Type: application/json) en POST/PUT/QUERY.
+  // Los parámetros de GET y DELETE van en la query string de la ruta.
+  let cuerpo;
+  if (body !== undefined && body !== null) {
+    const datos = body instanceof FormData ? Object.fromEntries(body) : body;
+    cuerpo = JSON.stringify(datos);
+    headers["Content-Type"] = "application/json";
   }
 
   const res = await fetch(`${BASE_API}/${ruta}`, {

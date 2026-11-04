@@ -123,7 +123,6 @@ class Usuarios {
 
     # Crear usuario
     public function add(array $arrayData) {
-        // Autoasignar rol si no se envió desde el registro (rol 1: estudiante)
         $ROL_DEFAULT = 1;
         if (empty($arrayData["rol_id"])) {
             $arrayData["rol_id"] = $ROL_DEFAULT;
@@ -139,6 +138,9 @@ class Usuarios {
         $cifrada = password_hash($password, PASSWORD_DEFAULT);
 
         try {
+            $querySelect = "SELECT c.id FROM carreras INNER JOIN institucion i ON i.id_carrera = c.id WHERE c.id = ? AND i.id";
+            $stmt = $this->connection->prepare($querySelect);
+            $stmt->execute([$data['carrera_id'], $data['ins']]);
             $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, rol_id, institucion_id, carrera_id, carnet, telefono, biografia)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->connection->prepare($query);

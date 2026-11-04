@@ -2,6 +2,7 @@
 
 require_once __DIR__ . "/../models/instituciones.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -12,85 +13,58 @@ $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
-# PHP no llena $_PUT / $_DELETE: se leen del cuerpo (x-www-form-urlencoded)
-if ($method === 'PUT') {
-    parse_str(file_get_contents("php://input"), $_PUT);
-} elseif ($method === 'DELETE') {
-    parse_str(file_get_contents("php://input"), $_DELETE);
-}
+# POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
-switch ($method) {
-    case 'GET':
-        $id   = trim($_GET['id'] ?? '');
-        $tipo = trim($_GET['tipo'] ?? '');
-        $acotado = isset($_GET['acotado']);
-        try {
-            $institucion = new Instituciones($connection, $response);
-            if (!empty($id)) {
-                $institucion->findById((int)$id);
-            } elseif (!empty($tipo)) {
+try {
+    $institucion = new Instituciones($connection, $response);
+
+    switch ($method) {
+        case 'GET':
+            $id      = (int)($_GET['id'] ?? 0);
+            $tipo    = trim($_GET['tipo'] ?? '');
+            $acotado = isset($_GET['acotado']);
+
+            if ($id > 0) {
+                $institucion->findById($id);
+            } elseif ($tipo !== '') {
                 $institucion->findByTipo($tipo);
-            }elseif($acotado){
+            } elseif ($acotado) {
                 $institucion->findAllAcotado();
-            }
-             else {
+            } else {
                 $institucion->findAll();
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'POST':
-        $institucionData = [
-            'nombre'         => trim($_POST['nombre'] ?? ''),
-            'siglas'         => trim($_POST['siglas'] ?? ''),
-            'tipo'           => trim($_POST['tipo'] ?? 'empresa'),
-            'contacto_email' => trim($_POST['contacto_email'] ?? ''),
-            'sitio_web'      => trim($_POST['sitio_web'] ?? '')
-        ];
+        case 'POST':
+            $institucion->add([
+                'nombre'         => inputString($data, 'nombre'),
+                'siglas'         => inputString($data, 'siglas'),
+                'tipo'           => inputString($data, 'tipo', 'empresa'),
+                'contacto_email' => inputString($data, 'contacto_email'),
+                'sitio_web'      => inputString($data, 'sitio_web')
+            ]);
+            break;
 
-        try {
-            $institucion = new Instituciones($connection, $response);
-            $institucion->add($institucionData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+        case 'PUT':
+            $institucion->update([
+                'id'             => inputString($data, 'id'),
+                'nombre'         => inputString($data, 'nombre'),
+                'siglas'         => inputString($data, 'siglas'),
+                'tipo'           => inputString($data, 'tipo', 'empresa'),
+                'contacto_email' => inputString($data, 'contacto_email'),
+                'sitio_web'      => inputString($data, 'sitio_web')
+            ]);
+            break;
 
-    case 'PUT':
-        $institucionData = [
-            'id'             => trim($_PUT['id'] ?? ''),
-            'nombre'         => trim($_PUT['nombre'] ?? ''),
-            'siglas'         => trim($_PUT['siglas'] ?? ''),
-            'tipo'           => trim($_PUT['tipo'] ?? 'empresa'),
-            'contacto_email' => trim($_PUT['contacto_email'] ?? ''),
-            'sitio_web'      => trim($_PUT['sitio_web'] ?? '')
-        ];
+        case 'DELETE':
+            $institucion->delete((int)($_GET['id'] ?? 0));
+            break;
 
-        try {
-            $institucion = new Instituciones($connection, $response);
-            $institucion->update($institucionData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    case 'DELETE':
-        $id = (int)($_DELETE['id'] ?? $_GET['id'] ?? 0);
-
-        try {
-            $institucion = new Instituciones($connection, $response);
-            $institucion->delete($id);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

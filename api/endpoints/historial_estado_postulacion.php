@@ -2,89 +2,62 @@
 
 require_once __DIR__ . "/../models/historial_estado_postulacion.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, POST, PUT, QUERY, DELETE");
 header("Content-Type: application/json");
 
-
 $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
-# PHP no llena $_PUT / $_DELETE: se leen del cuerpo (x-www-form-urlencoded)
-if ($method === 'PUT') {
-    parse_str(file_get_contents("php://input"), $_PUT);
-} elseif ($method === 'DELETE') {
-    parse_str(file_get_contents("php://input"), $_DELETE);
-}
+# POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
+$data = readJsonInput($method);
 
-switch ($method) {
-    case 'GET':
-        $id             = trim($_GET['id'] ?? '');
-        $postulacion_id = trim($_GET['postulacion_id'] ?? '');
+try {
+    $historial = new HistorialEstadoPostulacion($connection, $response);
 
-        try {
-            $historial = new HistorialEstadoPostulacion($connection, $response);
-            if (!empty($id)) {
-                $historial->findById((int)$id);
-            } elseif (!empty($postulacion_id)) {
-                $historial->findByPostulacion((int)$postulacion_id);
+    switch ($method) {
+        case 'GET':
+            $id             = (int)($_GET['id'] ?? 0);
+            $postulacion_id = (int)($_GET['postulacion_id'] ?? 0);
+
+            if ($id > 0) {
+                $historial->findById($id);
+            } elseif ($postulacion_id > 0) {
+                $historial->findByPostulacion($postulacion_id);
             } else {
                 $historial->findAll();
             }
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+            break;
 
-    case 'POST':
-        $historialData = [
-            'postulacion_id'  => trim($_POST['postulacion_id'] ?? ''),
-            'estado_anterior' => trim($_POST['estado_anterior'] ?? ''),
-            'estado_nuevo'    => trim($_POST['estado_nuevo'] ?? ''),
-            'comentario'      => trim($_POST['comentario'] ?? ''),
-            'actualizado_por' => trim($_POST['actualizado_por'] ?? '')
-        ];
+        case 'POST':
+            $historial->add([
+                'postulacion_id'  => inputString($data, 'postulacion_id'),
+                'estado_anterior' => inputString($data, 'estado_anterior'),
+                'estado_nuevo'    => inputString($data, 'estado_nuevo'),
+                'comentario'      => inputString($data, 'comentario'),
+                'actualizado_por' => inputString($data, 'actualizado_por')
+            ]);
+            break;
 
-        try {
-            $historial = new HistorialEstadoPostulacion($connection, $response);
-            $historial->add($historialData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
+        case 'PUT':
+            $historial->update([
+                'id'         => inputString($data, 'id'),
+                'comentario' => inputString($data, 'comentario')
+            ]);
+            break;
 
-    case 'PUT':
-        $historialData = [
-            'id'         => trim($_PUT['id'] ?? ''),
-            'comentario' => trim($_PUT['comentario'] ?? '')
-        ];
+        case 'DELETE':
+            $historial->delete((int)($_GET['id'] ?? 0));
+            break;
 
-        try {
-            $historial = new HistorialEstadoPostulacion($connection, $response);
-            $historial->update($historialData);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    case 'DELETE':
-        $id = (int)($_DELETE['id'] ?? $_GET['id'] ?? 0);
-
-        try {
-            $historial = new HistorialEstadoPostulacion($connection, $response);
-            $historial->delete($id);
-        } catch (\Throwable $th) {
-            Response::error("Error");
-            //Response::debugError($th);
-        }
-        break;
-
-    default:
-        Response::invalidMethod();
+        default:
+            Response::invalidMethod();
+    }
+} catch (\Throwable $th) {
+    Response::error("Error");
+    //Response::debugError($th);
 }

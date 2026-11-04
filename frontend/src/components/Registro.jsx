@@ -30,17 +30,24 @@ export default function Registro({ onCambiarVista }) {
   const [enviando, setEnviando] = useState(false);
 
 
+// FUNCION CLAVE, vale la pena analizarla.
+// Previene enviar estados ilegales a la API.
+// PATRON DE SELECTS EN CASCADA DEPENDIENTES.
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
+
+    // Al cambiar de institución, le avisamos al contexto fuera del updater de setForm
+    if (name === "institucion_id") {
+      setInstitucionId(value);
+    }
+
     setForm((prev) => {
       const siguiente = {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
       };
-      // Al cambiar de institución, la carrera elegida ya no es válida
       if (name === "institucion_id") {
         siguiente.carrera_id = "";
-        setInstitucionId(value);
       }
       return siguiente;
     });
@@ -124,7 +131,8 @@ export default function Registro({ onCambiarVista }) {
       setEnviando(true);
       const res = await fetch(`${BASE_API}/usuarios.php`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
       });
 
       // Puede que el servidor responda sin JSON válido en errores
