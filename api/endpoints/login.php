@@ -6,8 +6,15 @@ require_once __DIR__ . "/../core/auth-middleware.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Methods: GET, POST, PUT, QUERY, DELETE");
+header("Access-Control-Allow-Methods: GET, POST, PUT, QUERY, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, X-CSRF-Token");
 header("Content-Type: application/json");
+
+# Preflight CORS (solo aplica si el frontend llama a Apache directo, sin el proxy de Vite)
+if (($_SERVER["REQUEST_METHOD"] ?? '') === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 
 $connection = Connection::load();
@@ -27,7 +34,8 @@ switch ($method) {
             'username'  => $auth_data['username'],
             'name'      => $auth_data['name'],
             'roles'     => $auth_data['roles'],
-            'isAdmin'   => $auth_data['isAdmin']
+            'isAdmin'   => $auth_data['isAdmin'],
+            'csrfToken' => csrfToken()
         ]);
         break;
 

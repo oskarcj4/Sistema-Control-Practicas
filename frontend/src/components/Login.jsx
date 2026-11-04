@@ -1,8 +1,7 @@
 import { useState } from "react";
+import { apiFetch } from "../api/generic-api";
 import Campo from "../helpers/Campo";
 import claseInput from "../helpers/claseInput";
-
-const BASE_API = "http://localhost/SistemaControlPracticas/api/endpoints";
 
 const datosIniciales = {
   identificador: "",
@@ -63,22 +62,11 @@ export default function Login({ onCambiarVista, onLoginExitoso }) {
 
     try {
       setEnviando(true);
-      const res = await fetch(`${BASE_API}/login.php`, {
+      // apiFetch envía la cookie y guarda el csrfToken que devuelve el backend
+      const resultado = await apiFetch("login.php", {
         method: "POST",
         body: formData,
-        credentials: "include",
       });
-
-      let resultado = {};
-      try {
-        resultado = await res.json();
-      } catch {
-        resultado = {};
-      }
-
-      if (!res.ok || (resultado.code !== undefined && resultado.code !== 1)) {
-        throw new Error(resultado.message || `Error ${res.status} al iniciar sesión`);
-      }
 
       setMensaje({
         tipo: "ok",

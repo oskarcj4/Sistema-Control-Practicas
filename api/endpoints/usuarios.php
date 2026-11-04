@@ -2,6 +2,7 @@
 
 require_once __DIR__ . "/../models/usuarios.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/auth-middleware.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -18,6 +19,29 @@ if ($method === 'PUT') {
     parse_str(file_get_contents("php://input"), $_PUT);
 } elseif ($method === 'DELETE') {
     parse_str(file_get_contents("php://input"), $_DELETE);
+}
+
+# POST (registro) es público. El resto exige sesión; PUT/DELETE además validan CSRF.
+# Un usuario normal solo puede ver/editar su propio registro; el admin puede todo.
+$auth_data = null;
+if ($method !== 'POST') {
+    $auth_data = requireAuth();
+    $esAdmin   = boolval($auth_data['isAdmin']);
+    $propioId  = (int)$auth_data['id'];
+
+    if ($method === 'GET' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId) {
+        Response::invalidAccess();
+    }
+    if ($method === 'PUT' && !$esAdmin) {
+        if ((int)($_PUT['id'] ?? 0) !== $propioId) {
+            Response::invalidAccess();
+        }
+        # Un usuario normal no puede suspender/reactivar su cuenta
+        $_PUT['estado_cuenta'] = 'activo';
+    }
+    if ($method === 'DELETE' && !$esAdmin) {
+        Response::invalidAccess();
+    }
 }
 
 switch ($method) {

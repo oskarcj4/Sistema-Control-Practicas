@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { BASE_API } from "../api/generic-api";
 import Campo from "../helpers/Campo";
 import claseInput from "../helpers/claseInput";
 import extraerLista from '../helpers/extraerLista';
-const BASE_API = "http://localhost/SistemaControlPracticas/api/endpoints";
 
 const datosIniciales = {
   username: "",

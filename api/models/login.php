@@ -87,7 +87,8 @@ class Login {
                 'username'  => $payload['username'],
                 'name'      => $payload['name'],
                 'roles'     => $payload['roles'],
-                'isAdmin'   => $payload['isAdmin']
+                'isAdmin'   => $payload['isAdmin'],
+                'csrfToken' => csrfToken()
             ], "Logueado exitosamente");
         } catch (PDOException $e) {
             Response::error("Error");
@@ -105,6 +106,6 @@ class Login {
             'httponly' => filter_var(COOKIE_HTTPONLY, FILTER_VALIDATE_BOOLEAN),
             'samesite' => COOKIE_SAMESITE,
         ]);
-        $this->response->success("Sesión cerrada");
+        $this->response->success([], "Sesión cerrada");
     }
 }
