@@ -12,9 +12,6 @@ require_once __DIR__ . "/response.php";
  *  - el JSON está mal formado
  *  - el JSON no es un objeto (por ejemplo "123" o "[1,2]")
  *
- * @param string   $method  Método HTTP de la petición
- * @param string[] $metodos Métodos que requieren cuerpo JSON
- * @return array Datos decodificados
  */
 function readJsonInput(string $method, array $metodos = ['POST', 'PUT', 'QUERY']): array
 {

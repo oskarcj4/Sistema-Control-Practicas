@@ -1,38 +1,74 @@
-import { useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
+import { useState } from "react";
+import Navbar from "./Navbar";
+import PerfilForm from "./PerfilForm";
+import EstadoVacio from "./ui/EstadoVacio";
 
-export default function MainPage({ usuario: usuarioProp, onLogout: onLogoutProp }) {
-  const { usuario: usuarioContext, logout } = useContext(AuthContext);
-  const usuario = usuarioProp || usuarioContext;
-  const onLogout = onLogoutProp || logout;
+// Lista de pestañas del Navbar.
+// 👤 T10 (tuya): filtra este arreglo según el rol del usuario
+//    (ej: "nueva-oferta" solo Reclutador/Admin, "admin" solo Admin).
+const PESTANAS = [
+  { id: "feed", texto: "Feed" },
+  { id: "mis-postulaciones", texto: "Mis Postulaciones" },
+  { id: "nueva-oferta", texto: "Nueva Oferta" },
+  { id: "admin", texto: "Panel de Administración" },
+  { id: "perfil", texto: "Mi Perfil" }, // visible para todos los roles
+];
+
+export default function MainPage() {
+  // Qué pestaña se está viendo ahora mismo.
+  const [pestanaActiva, setPestanaActiva] = useState("feed");
 
   return (
-    <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow">
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            ¡Bienvenido, {usuario?.name || usuario?.username}!
-          </h1>
-          <p className="text-sm text-slate-500">
-            Usuario: <span className="font-medium text-slate-700">@{usuario?.username}</span>
-          </p>
-        </div>
-        <button
-          onClick={onLogout}
-          className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition cursor-pointer"
-        >
-          Cerrar sesión
-        </button>
-      </div>
+    <div className="min-h-screen bg-slate-100">
+      <Navbar
+        pestanas={PESTANAS}
+        pestanaActiva={pestanaActiva}
+        onCambiarPestana={setPestanaActiva}
+        notificaciones={[]} // 👤 T17: aquí pasarás las notificaciones que cargues
+      />
 
-      <div className="mt-6 space-y-4">
-        <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
-          <h2 className="font-semibold text-slate-700">Panel de Control de Prácticas</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Has iniciado sesión correctamente. Desde aquí podrás ver las oportunidades de práctica y tus postulaciones.
-          </p>
-        </div>
-      </div>
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        {/* Se muestra solo el bloque de la pestaña activa */}
+
+        {pestanaActiva === "feed" && (
+          // 👤 T3 / T4 / T6: aquí va el useEffect, el buscador, el .map() con <OportunidadCard />
+          //   y el <DetalleModal />.
+          <EstadoVacio
+            icono="🔎"
+            titulo="Feed de oportunidades"
+            mensaje="Aquí se mostrarán las prácticas disponibles (pendiente T3)."
+          />
+        )}
+
+        {pestanaActiva === "mis-postulaciones" && (
+          // 👤 T9: aquí va la carga con useEffect y el .map() con <PostulacionCard />
+          <EstadoVacio
+            icono="📄"
+            titulo="Mis postulaciones"
+            mensaje="Aquí verás el estado de tus solicitudes (pendiente T9)."
+          />
+        )}
+
+        {pestanaActiva === "nueva-oferta" && (
+          // 👤 T11: formulario "Publicar Oportunidad"
+          <EstadoVacio
+            icono="📝"
+            titulo="Publicar oportunidad"
+            mensaje="Aquí irá el formulario para crear ofertas (pendiente T11)."
+          />
+        )}
+
+        {pestanaActiva === "admin" && (
+          // 👤 T14 / T15 / T16: <TablaUsuarios />, <AsignarRolModal /> y bandeja de solicitudes
+          <EstadoVacio
+            icono="🛡️"
+            titulo="Panel de administración"
+            mensaje="Aquí irán usuarios, roles y solicitudes (pendiente T14-T16)."
+          />
+        )}
+
+        {pestanaActiva === "perfil" && <PerfilForm />}
+      </main>
     </div>
   );
 }
