@@ -36,10 +36,12 @@ class Oportunidades {
     }
 
     # Feed: oportunidades activas y vigentes, filtros opcionales por carrera y modalidad
-    public function feed(int $carrera_id = 0, string $modalidad = ''){
+    public function feed(int $cursor=0, int $carrera_id = 0, string $modalidad = '', $limit=20){
         if ($modalidad !== '' && !in_array($modalidad, self::MODALIDADES, true)) {
             $this->response->error("La modalidad no es valida");
         }
+        // Paginacion por cursor
+        // El cliente envia un puntero con el ultimo registro que visito.
         try {
             $query = "SELECT o.id, o.titulo, o.descripcion, o.requisitos,
                                    o.institucion_id, i.nombre AS institucion,
@@ -63,13 +65,19 @@ class Oportunidades {
                 $query .= " AND o.modalidad = ?";
                 $params[] = $modalidad;
             }
+            if ($cursor > 0) {                     # primera pagina: sin cursor
+                $query .= " AND o.id < ?";
+                $params[] = $cursor;
+            }
+            $query .= " ORDER BY o.id DESC  LIMIT ?";
 
-            $query .= " ORDER BY o.fecha_publicacion DESC, o.id DESC";
-
-            $stmt = $this->connection->prepare($query);
-            $stmt->execute($params);
-            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $this->response->success($result);
+          $stmt = $this->connection->prepare($query);
+          foreach ($params as $i => $v) {
+              $stmt->bindValue($i + 1, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+          }
+          $stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+          $stmt->execute();
+          $this->response->success($stmt->fetchAll(PDO::FETCH_ASSOC));
         } catch (PDOException $e) {
             Response::error("Error");
             //Response::debugError($e);

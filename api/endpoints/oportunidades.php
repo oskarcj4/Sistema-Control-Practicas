@@ -31,6 +31,8 @@ try {
             $todas      = trim($_GET['todas'] ?? '');
             $carrera_id = (int)($_GET['carrera_id'] ?? 0);
             $modalidad  = trim($_GET['modalidad'] ?? '');
+            $limit = (int) ($_GET["limit"] ?? 20);
+            $cursor= (int) ($_GET["cursor"] ?? 0);
 
             if ($id > 0) {
                 $oportunidad->findById($id);
@@ -39,7 +41,7 @@ try {
             } elseif ($todas === '1') {
                 $oportunidad->findAll();
             } else {
-                $oportunidad->feed($carrera_id, $modalidad);
+                $oportunidad->feed($cursor, $carrera_id, $modalidad, $limit);
             }
             break;
 
