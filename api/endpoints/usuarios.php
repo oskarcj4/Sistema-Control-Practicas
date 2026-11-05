@@ -21,6 +21,8 @@ if ($method !== 'POST') {
     $auth_data = requireAuth();
 }
 
+
+
 # POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
 $data = readJsonInput($method);
 

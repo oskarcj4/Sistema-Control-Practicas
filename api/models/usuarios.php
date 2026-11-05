@@ -140,20 +140,24 @@ class Usuarios {
         try {
             $querySelect = "SELECT c.id FROM carreras INNER JOIN institucion i ON i.id_carrera = c.id WHERE c.id = ? AND i.id";
             $stmt = $this->connection->prepare($querySelect);
+            $query2 = "INSERT INTO asignaciones_roles (id_usuario, id_rol) VALUES (?, ?) ON DUPLICATE KEY UPDATE estado = 1";
+            $stmt2 = $this->connection->prepare($query2);
             $stmt->execute([$data['carrera_id'], $data['ins']]);
-            $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, rol_id, institucion_id, carrera_id, carnet, telefono, biografia)
+            $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, institucion_id, carrera_id, carnet, telefono, biografia)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
             $stmt = $this->connection->prepare($query);
             $stmt->execute([
                 $data['username'], $data['nombre'], $data['apellido'], $data['email'], $cifrada,
-                $data['rol_id'], $data['institucion_id'], $data['carrera_id'],
+                $data['institucion_id'], $data['carrera_id'],
                 $data['carnet'], $data['telefono'], $data['biografia']
             ]);
 
             if ($stmt->rowCount() === 0) {
                 $this->response->error("No se pudo agregar el usuario");
             }
-
+            $id_user = $this->connection->lastInsertId();
+            $stmt2->execute([$id_user, $data['rol_id']]);
             $this->response->success("Usuario registrado con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {

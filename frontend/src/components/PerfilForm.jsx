@@ -30,14 +30,14 @@ export default function PerfilForm() {
   const { instituciones, carreras, cargandoCarreras, setInstitucionId } = useContext(RegisterContext);
 
   const [form, setForm] = useState(formVacio);
-  const [rolId, setRolId] = useState(""); // el backend lo exige en el PUT, aunque no se edite aquí
+  const [rolId, setRolId] = useState("");
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(null);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState(null); // { tipo: "ok" | "error", texto }
   const [enviando, setEnviando] = useState(false);
 
-  // ---------- 1) Cargar los datos actuales del usuario ----------
+  // Cargar los datos actuales del usuario
   useEffect(() => {
     const controlador = new AbortController();
 
@@ -48,9 +48,9 @@ export default function PerfilForm() {
         });
         const perfil = respuesta.data;
 
-        // ⚠️ IMPORTANTE: la base de datos devuelve null en los campos vacíos
+        //  La base de datos devuelve null en los campos vacíos
         // (ej: telefono = null). Un <input> con value={null} da advertencias en React,
-        // por eso convertimos cada null en "" con  "|| ''".
+        // convertimos cada null en "" con  "|| ''".
         setForm({
           username: perfil.username || "",
           nombre: perfil.nombre || "",
@@ -185,7 +185,7 @@ export default function PerfilForm() {
     }
   }
 
-  // ---------- Dibujo ----------
+  // Dibujo martinez
   if (cargando) {
     return <Spinner texto="Cargando perfil..." />;
   }

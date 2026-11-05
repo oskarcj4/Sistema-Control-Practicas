@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { apiFetch } from "../api/generic-api";
 import { formatearFecha } from "../helpers/estilos";
 
 // T15 - Tabla de usuarios del sistema (vista del Administrador).
@@ -7,7 +9,32 @@ import { formatearFecha } from "../helpers/estilos";
 //   usuarios           -> arreglo de GET usuarios.php
 //   onCambiarEstado    -> (opcional) función(usuario) para el botón Suspender/Reactivar
 //   onGestionarRoles   -> (opcional) función(usuario) para abrir el modal de roles (T14)
-export default function TablaUsuarios({ usuarios, onCambiarEstado, onGestionarRoles }) {
+export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
+  const [cargando, setCargando] = useState(true);
+  const [usuarios, setUsuarios] = useState([]);
+  const [errorCarga, setErrorCarga] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function cargarUsuarios() {
+      try{const res = await apiFetch("usuarios.php", {signal: controlador.signal});
+       setUsuarios(res.data);
+      }
+      catch(err) {
+        if(err.name === 'AbortError'){
+          setErrorCarga(err.message);
+        }
+      }
+      finally{
+        if(!controller.signal.aborted){
+          setCargando(false);
+        }
+      }
+    }
+
+    cargarUsuarios();
+  }, [])
+
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[700px] text-left text-sm">

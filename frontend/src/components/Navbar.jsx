@@ -87,7 +87,7 @@ export default function Navbar({
       {/* Fila inferior: pestañas. overflow-x-auto permite deslizar en celular. */}
       <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
         {/* Cambiar a pestanasVisibles para produccion */}
-        {pestanasVisibles.map((pestana) => {
+        {pestanas.map((pestana) => {
           const activa = pestana.id === pestanaActiva;
           return (
             <button

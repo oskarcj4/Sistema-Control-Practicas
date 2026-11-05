@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Navbar from "./Navbar";
 import PerfilForm from "./PerfilForm";
+import TablaUsuarios from "./TablaUsuarios";
 import EstadoVacio from "./ui/EstadoVacio";
 
 // Lista de pestañas del Navbar.
@@ -24,7 +25,7 @@ export default function MainPage() {
         pestanas={PESTANAS}
         pestanaActiva={pestanaActiva}
         onCambiarPestana={setPestanaActiva}
-        notificaciones={[]} // T17: aquí pasarás las notificaciones que cargues
+        notificaciones={[]} // T17: notificaciones
       />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
@@ -58,14 +59,7 @@ export default function MainPage() {
           />
         )}
 
-        {pestanaActiva === "admin" && (
-          // T14 / T15 / T16: <TablaUsuarios />, <AsignarRolModal /> y bandeja de solicitudes
-          <EstadoVacio
-            icono="🛡️"
-            titulo="Panel de administración"
-            mensaje="Aquí irán usuarios, roles y solicitudes (pendiente T14-T16)."
-          />
-        )}
+        {pestanaActiva === "admin" && (<TablaUsuarios/>)}
 
         {pestanaActiva === "perfil" && <PerfilForm />}
       </main>

@@ -4,7 +4,7 @@ import {
   formatearFecha,
 } from "../helpers/estilos";
 
-// T12 - Tabla de estudiantes que se postularon a una oferta (vista del reclutador).
+//  Tabla de estudiantes que se postularon a una oferta (vista del reclutador).
 // Solo dibuja. La carga de datos (GET postulaciones.php?oportunidad_id=X) la haces tú.
 //
 // Props:
