@@ -4,7 +4,7 @@ require_once __DIR__ . "/../models/postulaciones.php";
 require_once __DIR__ . "/../core/connection.php";
 require_once __DIR__ . "/../core/request.php";
 require_once __DIR__ . "/../core/upload.php";
-require_once __DIR__ . "/../core/storage/storage.php";
+require_once __DIR__ . "/../core/storage.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -39,7 +39,7 @@ $method     = $_SERVER["REQUEST_METHOD"];
 # PUT/QUERY siguen siendo JSON (cambio de estado y edición de datos sin archivos).
 if ($method === 'POST') {
     if (!Upload::isMultipart()) {
-        Response::error("Petición inválida: la postulación se envía como multipart/form-data.", -1, httpCode: 400);
+        Response::error("Petición inválida: la postulación se envía como multipart/form-data.", -1, 400);
     }
     $data = Upload::readMultipartInput();
 } else {
@@ -85,22 +85,20 @@ try {
                 $constancia = documentoPostulacion('constancia_estudios', false);
                 $quitarConstancia = inputString($data, 'quitar_constancia') === '1';
 
-                # 2. Subir los archivos nuevos y obtener sus URLs
-                $subidas = new UploadTransaction(Storage::driver());
+                # 2. Subir los archivos nuevos y obtener sus URLs.
+                #    Si no se manda un archivo, se conserva el link actual.
+                #    Los archivos viejos NO se borran aquí (ver docs/SUBIDA_ARCHIVOS.md, sección 9).
                 $documentos = [
                     'cv_url'                  => $actual['cv_url'],
                     'constancia_estudios_url' => $actual['constancia_estudios_url'],
                 ];
                 if ($cv) {
-                    $documentos['cv_url'] = $subidas->store($cv, DOCUMENTOS_POSTULACION['cv']['carpeta']);
-                    $subidas->replaceOnSuccess($actual['cv_url']);
+                    $documentos['cv_url'] = Storage::guardar($cv, DOCUMENTOS_POSTULACION['cv']['carpeta']);
                 }
                 if ($constancia) {
-                    $documentos['constancia_estudios_url'] = $subidas->store($constancia, DOCUMENTOS_POSTULACION['constancia_estudios']['carpeta']);
-                    $subidas->replaceOnSuccess($actual['constancia_estudios_url']);
+                    $documentos['constancia_estudios_url'] = Storage::guardar($constancia, DOCUMENTOS_POSTULACION['constancia_estudios']['carpeta']);
                 } elseif ($quitarConstancia) {
                     $documentos['constancia_estudios_url'] = null;
-                    $subidas->replaceOnSuccess($actual['constancia_estudios_url']);
                 }
 
                 # 3. Guardar las URLs en la base de datos
@@ -117,20 +115,16 @@ try {
                 $previa     = $postulacion->validarAlta($oportunidad_id, $estudiante_id);
 
                 # 2. Subir los archivos y obtener sus URLs
-                $subidas = new UploadTransaction(Storage::driver());
+                #    Si algo falla desde aquí, pueden quedar archivos huérfanos (docs/SUBIDA_ARCHIVOS.md, sección 9)
                 $documentos = [
-                    'cv_url'                  => $subidas->store($cv, DOCUMENTOS_POSTULACION['cv']['carpeta']),
-                    'constancia_estudios_url' => $constancia
-                        ? $subidas->store($constancia, DOCUMENTOS_POSTULACION['constancia_estudios']['carpeta'])
-                        : null,
+                    'cv_url'                  => Storage::guardar($cv, DOCUMENTOS_POSTULACION['cv']['carpeta']),
+                    'constancia_estudios_url' => null,
                 ];
-                if ($previa) {
-                    # Reactivación de una postulación retirada: los archivos viejos sobran
-                    $subidas->replaceOnSuccess($previa['cv_url']);
-                    $subidas->replaceOnSuccess($previa['constancia_estudios_url']);
+                if ($constancia) {
+                    $documentos['constancia_estudios_url'] = Storage::guardar($constancia, DOCUMENTOS_POSTULACION['constancia_estudios']['carpeta']);
                 }
 
-                # 3. Guardar las URLs en la base de datos
+                # 3. Guardar las URLs en la base de datos (un solo INSERT)
                 $postulacion->registrar($oportunidad_id, $estudiante_id, $previa, $formulario, $documentos);
             }
             break;
@@ -164,10 +158,10 @@ try {
             Response::invalidMethod();
     }
 } catch (StorageException $e) {
-    # Falla de disco/S3 o .env mal configurado. Los archivos ya subidos se borran solos.
-    Response::error("No se pudo guardar el archivo. Inténtelo de nuevo.");
+    # Falla de disco/S3 o .env mal configurado
+    Response::error("No se pudo guardar el archivo. Inténtelo de nuevo.", -1, 500);
     //Response::debugError($e);
 } catch (\Throwable $th) {
-    Response::error("Error");
+    Response::error("Error", -1, 500);
     //Response::debugError($th);
 }

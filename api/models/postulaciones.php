@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . "/../core/storage/storage.php";
+require_once __DIR__ . "/../core/storage.php";
 
 class Postulaciones {
     private Connection $connection;
@@ -173,8 +173,7 @@ class Postulaciones {
      * Revisa que el estudiante y la oportunidad permitan una postulación nueva.
      * Se llama ANTES de subir archivos para no subir nada si la postulación no procede.
      *
-     * @return array|null postulación retirada anteriormente (estado = 0) que se reactivará,
-     *                    con sus URLs para borrar los archivos viejos; null si es nueva.
+     * @return array|null postulación retirada anteriormente (estado = 0) que se reactivará; null si es nueva.
      */
     public function validarAlta(int $oportunidad_id, int $estudiante_id): ?array {
         if ($oportunidad_id <= 0) {
@@ -395,7 +394,7 @@ class Postulaciones {
     /**
      * Última barrera antes de la base de datos: las URLs de documentos solo pueden
      * apuntar al almacenamiento del sistema (carpeta local o S3, según el .env) y el
-     * archivo debe existir. Ver Storage::isAllowedUrl().
+     * archivo debe existir. Ver Storage::esUrlPermitida().
      */
     private function validarDocumentos(array $documentos): array {
         $cv_url                  = trim((string)($documentos['cv_url'] ?? ''));
@@ -405,11 +404,11 @@ class Postulaciones {
             $this->response->error("El CV es obligatorio", -1, 400);
         }
 
-        if (!Storage::isAllowedUrl($cv_url)) {
+        if (!Storage::esUrlPermitida($cv_url)) {
             $this->response->error("El enlace del CV no pertenece al almacenamiento del sistema", -1, 400);
         }
 
-        if ($constancia_estudios_url !== '' && !Storage::isAllowedUrl($constancia_estudios_url)) {
+        if ($constancia_estudios_url !== '' && !Storage::esUrlPermitida($constancia_estudios_url)) {
             $this->response->error("El enlace de la constancia no pertenece al almacenamiento del sistema", -1, 400);
         }
 

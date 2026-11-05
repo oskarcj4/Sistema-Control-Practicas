@@ -10,7 +10,7 @@ Este documento explica cómo el backend recibe el formulario de postulación con
 2. [Flujo completo de una postulación](#2-flujo-completo-de-una-postulación)
 3. [Archivos nuevos y modificados](#3-archivos-nuevos-y-modificados)
 4. [Configuración (.env)](#4-configuración-env)
-5. [Abstracción del almacenamiento: cambiar de local a S3](#5-abstracción-del-almacenamiento-cambiar-de-local-a-s3)
+5. [Almacenamiento: cambiar de local a S3](#5-almacenamiento-cambiar-de-local-a-s3)
 6. [Validación de archivos: formatos y pesos](#6-validación-de-archivos-formatos-y-pesos)
 7. [Validación de los links antes de guardarlos en la BD](#7-validación-de-los-links-antes-de-guardarlos-en-la-bd)
 8. [Campos del formulario y cómo agregar más](#8-campos-del-formulario-y-cómo-agregar-más)
@@ -27,11 +27,15 @@ Este documento explica cómo el backend recibe el formulario de postulación con
 
 - `POST api/endpoints/postulaciones.php` ahora recibe **`multipart/form-data`**: campos de texto del formulario más los archivos `cv` (obligatorio) y `constancia_estudios` (opcional).
 - El formulario incluye datos nuevos: **carrera (`carrera_id`)**, **edad** y **ciclo universitario**, además del mensaje de presentación.
-- Los archivos se guardan mediante una **capa de almacenamiento intercambiable**:
+- Todo el código de archivos está en **dos archivos**:
+  - `api/core/upload.php` → clase `Upload`: **valida** el archivo recibido.
+  - `api/core/storage.php` → clase `Storage`: **guarda** el archivo y genera el link.
+- El destino se elige en el `.env`:
   - `STORAGE_DRIVER=local`: carpeta del computador (por defecto `uploads/` del proyecto, servida por Apache).
   - `STORAGE_DRIVER=s3`: bucket de Amazon S3 (o servicio compatible).
 - En la base de datos **siempre se guarda un link** (URL). Antes de insertarlo, el backend comprueba que el link pertenezca al almacenamiento del sistema y que el archivo exista.
-- El flujo es: **validar → subir archivo → generar link → insertar link en la BD**. Si algo falla después de subir, el archivo se borra automáticamente.
+- El flujo es: **validar → subir archivo → generar link → insertar link en la BD**.
+- Los archivos que quedan sin uso (reemplazados o subidos en una petición que falló) **no se borran solos**. Se limpiarán con un cronjob (deuda técnica, ver sección 9).
 
 ---
 
@@ -51,16 +55,11 @@ api/endpoints/postulaciones.php
    │
    │    (hasta aquí NO se ha subido nada)
    │
-   │ 5. UploadTransaction::store()          -> Storage::driver()->put(...)  ==> devuelve URL
+   │ 5. Storage::guardar($archivo, carpeta) -> guarda en disco o S3  ==> devuelve URL
    │ 6. Postulaciones::registrar()          -> validarDocumentos(): la URL es del almacenamiento
    │                                           y el archivo existe -> INSERT/UPDATE en BD
    ▼
 Response::success / Response::error (exit)
-   │
-   ▼
-register_shutdown_function -> UploadTransaction::finish()
-   - éxito  (code = 1): borra archivos REEMPLAZADOS (CV anterior)
-   - fallo  (code ≠ 1): borra archivos NUEVOS (no quedan huérfanos)
 ```
 
 Todas las validaciones baratas (formulario, archivos y reglas de negocio) se hacen **antes** de subir, para no subir archivos que de todas formas se descartarían.
@@ -73,11 +72,8 @@ Todas las validaciones baratas (formulario, archivos y reglas de negocio) se hac
 
 | Archivo | Qué hace |
 |---|---|
-| `api/core/storage/file-storage.php` | Interfaz `FileStorage` (`put`, `delete`, `owns`, `exists`), clase base `BaseStorage` (conversión llave ↔ URL, validación de llaves) y `StorageException`. |
-| `api/core/storage/local-storage.php` | `LocalStorage`: guarda en una carpeta del disco. |
-| `api/core/storage/s3-storage.php` | `S3Storage`: guarda en S3 firmando peticiones con AWS Signature V4 vía `curl` (sin SDK ni Composer). |
-| `api/core/storage/storage.php` | Fachada `Storage`: lee el `.env`, crea el driver activo (`Storage::driver()`) y valida links (`Storage::isAllowedUrl()`). |
-| `api/core/upload.php` | `Upload` (lectura y validación de archivos multipart) y `UploadTransaction` (sube archivos y limpia si algo falla). |
+| `api/core/storage.php` | Clase `Storage`: guarda archivos en local o S3 (`guardar`), revisa si existen (`existe`) y valida links antes de la BD (`esUrlPermitida`). Incluye `StorageException`. S3 se firma con AWS Signature V4 vía `curl` (sin SDK ni Composer). |
+| `api/core/upload.php` | Clase `Upload`: lectura y validación de archivos multipart. |
 | `uploads/.htaccess` | Protege la carpeta local: solo sirve `.pdf/.jpg/.jpeg/.png`, sin listado de directorio y sin ejecutar PHP. |
 | `database/migrations/2026_11_05_postulaciones_formulario_archivos.sql` | Agrega `carrera_id`, `edad`, `ciclo_universitario` a una BD existente (incluye reversa). |
 | `docs/SUBIDA_ARCHIVOS.md` | Este documento. |
@@ -88,7 +84,6 @@ Todas las validaciones baratas (formulario, archivos y reglas de negocio) se hac
 |---|---|
 | `api/endpoints/postulaciones.php` | `POST` pasa de JSON a `multipart/form-data`; crea o edita (`accion=actualizar`) subiendo archivos. `PUT` sin `accion` edita solo datos del formulario. `PUT accion=estado`, `GET` y `DELETE` siguen igual. |
 | `api/models/postulaciones.php` | Campos del formulario centralizados en `CAMPOS_FORMULARIO`. `add/update` se dividen en `validarFormulario`, `validarAlta`, `registrar`, `buscarEditable` y `actualizar`. Las URLs se validan contra el almacenamiento. Los `SELECT` devuelven `carrera_id`, `carrera`, `edad` y `ciclo_universitario`. `changeState` y `delete` no cambian. |
-| `api/core/response.php` | Nueva propiedad estática `Response::$lastCode`: guarda el último `code` enviado. `UploadTransaction` la usa para saber si la petición terminó bien. |
 | `api/core/.env.example` | Variables `STORAGE_*` y `UPLOAD_MAX_MB`. |
 | `database/schema.sql` | Columnas nuevas en `postulaciones` y FK `fk_postulaciones_carrera`. |
 | `.gitignore` | Ignora `uploads/*` (los archivos de usuarios no se versionan), excepto `uploads/.htaccess`. |
@@ -127,25 +122,32 @@ UPLOAD_MAX_MB=5
 
 ---
 
-## 5. Abstracción del almacenamiento: cambiar de local a S3
+## 5. Almacenamiento: cambiar de local a S3
 
 ### Cómo está armado
 
+Todo está en una sola clase, `Storage` (`api/core/storage.php`). Tiene tres funciones públicas:
+
+| Función | Qué hace | Quién la usa |
+|---|---|---|
+| `Storage::guardar($archivo, $carpeta)` | Guarda el archivo y devuelve su URL | endpoint `postulaciones.php` |
+| `Storage::existe($url)` | `true` si el archivo existe (disco o bucket) | `esUrlPermitida` |
+| `Storage::esUrlPermitida($url)` | `true` si el link se puede guardar en la BD (sección 7) | modelo `Postulaciones::validarDocumentos()` |
+
+Dentro de `guardar` y `existe` hay un `if`: si `STORAGE_DRIVER=s3`, se hace una petición a S3 (`peticionS3`); si no, se usa la carpeta local (`move_uploaded_file` / `is_file`).
+
 ```
-               ┌──────────────────────────┐
-endpoint ─────▶│ Storage::driver()        │  lee STORAGE_DRIVER del .env
-modelo   ─────▶│ Storage::isAllowedUrl()  │
-               └────────────┬─────────────┘
-                            │ devuelve un FileStorage
-              ┌─────────────┴──────────────┐
-              ▼                            ▼
-      LocalStorage                    S3Storage
-  (carpeta del disco)        (bucket, firma SigV4 con curl)
+endpoint ──▶ Storage::guardar()
+                 │
+                 ├─ local ──▶ move_uploaded_file() a STORAGE_LOCAL_PATH/<llave>
+                 └─ s3    ──▶ peticionS3('PUT', <llave>)   (firma SigV4 con curl)
+                 │
+                 ▼
+        devuelve STORAGE_PUBLIC_URL/<llave>
 ```
 
-- El endpoint y el modelo **solo** conocen la interfaz `FileStorage` y la fachada `Storage`. Ninguno crea `LocalStorage` ni `S3Storage` directamente.
-- Los dos drivers comparten `BaseStorage`, que convierte una **llave** (`postulaciones/cv/2026/11/<aleatorio>.pdf`) en URL pública (`STORAGE_PUBLIC_URL/<llave>`) y al revés.
-- La llave es igual en los dos drivers: en local es la ruta dentro de la carpeta y en S3 es el nombre del objeto. Por eso migrar archivos es copiar la carpeta tal cual al bucket.
+- **Llave** = ruta relativa del archivo: `postulaciones/cv/2026/11/<aleatorio>.pdf`. **URL** = `STORAGE_PUBLIC_URL/<llave>`.
+- La llave es igual en local y en S3: en local es la ruta dentro de la carpeta y en S3 es el nombre del objeto. Por eso migrar archivos es copiar la carpeta tal cual al bucket.
 
 ### Pasar a S3
 
@@ -165,7 +167,7 @@ modelo   ─────▶│ Storage::isAllowedUrl()  │
    Con CloudFront, `STORAGE_PUBLIC_URL` es el dominio de la distribución (por ejemplo `https://dxxxx.cloudfront.net`).
 
 4. **Postulaciones viejas.** Las filas creadas en local tienen URLs `http://localhost/...`. Hay dos opciones:
-   - **Mantenerlas:** agregar el prefijo viejo a `STORAGE_ALLOWED_URLS=http://localhost/SistemaControlPracticas/uploads` para que se puedan seguir editando. El driver S3 no las borra al reemplazarlas, porque no le pertenecen.
+   - **Mantenerlas:** agregar el prefijo viejo a `STORAGE_ALLOWED_URLS=http://localhost/SistemaControlPracticas/uploads` para que se puedan seguir editando.
    - **Migrarlas:** subir la carpeta con `aws s3 sync uploads/postulaciones s3://mi-bucket/postulaciones` y reescribir las URLs:
 
      ```sql
@@ -174,7 +176,7 @@ modelo   ─────▶│ Storage::isAllowedUrl()  │
             constancia_estudios_url = REPLACE(constancia_estudios_url, 'http://localhost/SistemaControlPracticas/uploads', 'https://mi-bucket.s3.us-east-1.amazonaws.com');
      ```
 
-No hay que cambiar código. Para agregar otro destino (Google Cloud Storage, Azure, etc.), crear una clase que extienda `BaseStorage` e implemente `put`, `delete` y `exists`, y agregar un caso al `match` de `Storage::driver()`.
+No hay que cambiar código. Para agregar otro destino (Google Cloud Storage, Azure, etc.): aceptar el nuevo valor en `Storage::driver()` y agregar su rama `if` en `guardar()` y `existe()`.
 
 ---
 
@@ -182,17 +184,19 @@ No hay que cambiar código. Para agregar otro destino (Google Cloud Storage, Azu
 
 `Upload::validate($campo, $etiqueta, $formatos, $requerido)` (en `api/core/upload.php`) aplica estas capas en orden. Con el primer fallo responde `Response::error(...)` y termina la petición.
 
-| # | Capa | Qué evita | Mensaje |
-|---|---|---|---|
-| 0 | `CONTENT_LENGTH` > `post_max_size` (en `readMultipartInput`) | PHP descarta todo el cuerpo sin avisar | `La solicitud supera el tamaño máximo permitido por el servidor.` (HTTP 413) |
-| 1 | Archivo ausente y campo requerido | CV faltante | `El archivo de CV es obligatorio.` |
-| 2 | Varios archivos en un campo (`cv[]`) | Arreglos inesperados | `Solo se permite un archivo para CV.` |
-| 3 | Código de error de PHP (`UPLOAD_ERR_*`) | Archivos que superan `upload_max_filesize`, subidas parciales, carpeta temporal faltante | `...no debe superar X MB.` / `...se subió incompleto...` / `No se pudo recibir...` |
-| 4 | `is_uploaded_file()` | Rutas falsas inyectadas en `tmp_name` | `No se pudo recibir...` |
-| 5 | Tamaño real (`filesize`) entre 1 byte y `UPLOAD_MAX_MB` | Archivos vacíos o demasiado pesados | `...está vacío.` / `...no debe superar 5 MB.` |
-| 6 | Extensión del nombre original en la lista blanca del campo | `.exe`, `.php`, `.docx`... | `Formato no permitido para CV. Formatos aceptados: pdf.` |
-| 7 | MIME detectado por contenido con `finfo` (no se usa el `type` del navegador, que lo controla el cliente) | Un `.txt` renombrado a `.pdf` | `El contenido del archivo de CV no es un pdf válido.` |
-| 8 | Firma binaria de los primeros bytes (`%PDF-`, `FF D8 FF`, `89 50 4E 47...`) | Archivos con MIME ambiguo | Igual que la capa 7 |
+| # | Capa | Qué evita | Mensaje | HTTP |
+|---|---|---|---|---|
+| 0 | `CONTENT_LENGTH` > `post_max_size` (en `readMultipartInput`) | PHP descarta todo el cuerpo sin avisar | `La solicitud supera el tamaño máximo permitido por el servidor.` | 413 |
+| 1 | Archivo ausente y campo requerido | CV faltante | `El archivo de CV es obligatorio.` | 400 |
+| 2 | Varios archivos en un campo (`cv[]`) | Arreglos inesperados | `Solo se permite un archivo para CV.` | 400 |
+| 3 | Código de error de PHP (`UPLOAD_ERR_*`) | Archivos que superan `upload_max_filesize`, subidas parciales, carpeta temporal faltante | `...no debe superar X MB.` (413) / `...se subió incompleto...` (400) / `No se pudo recibir...` (500) | 413 / 400 / 500 |
+| 4 | `is_uploaded_file()` | Rutas falsas inyectadas en `tmp_name` | `No se pudo recibir...` | 400 |
+| 5 | Tamaño real (`filesize`) entre 1 byte y `UPLOAD_MAX_MB` | Archivos vacíos o demasiado pesados | `...está vacío.` (400) / `...no debe superar 5 MB.` (413) | 400 / 413 |
+| 6 | Extensión del nombre original en la lista blanca del campo | `.exe`, `.php`, `.docx`... | `Formato no permitido para CV. Formatos aceptados: pdf.` | 415 |
+| 7 | MIME detectado por contenido con `finfo` (no se usa el `type` del navegador, que lo controla el cliente) | Un `.txt` renombrado a `.pdf` | `El contenido del archivo de CV no es un pdf válido.` | 415 |
+| 8 | Firma binaria de los primeros bytes (`%PDF-`, `FF D8 FF`, `89 50 4E 47...`) | Archivos con MIME ambiguo | Igual que la capa 7 | 415 |
+
+Todas las respuestas de error llevan `code: -1`.
 
 ### Formatos por campo
 
@@ -212,16 +216,16 @@ Para cambiar formatos, editar `formatos` usando las constantes `Upload::PDF` y `
 
 ### Nombre del archivo guardado
 
-El nombre original **nunca** se usa. La llave es `<carpeta>/<año>/<mes>/<32 caracteres hexadecimales aleatorios>.<ext>`, generada con `random_bytes(16)`. Así se evitan colisiones, *path traversal* (`../../`), caracteres raros y URLs fáciles de adivinar. `jpeg` se guarda como `jpg`.
+El nombre original **nunca** se usa. `Storage::guardar()` arma la llave `<carpeta>/<año>/<mes>/<32 caracteres hexadecimales aleatorios>.<ext>`, generada con `random_bytes(16)`. Así se evitan colisiones, *path traversal* (`../../`), caracteres raros y URLs fáciles de adivinar. `jpeg` se guarda como `jpg`.
 
 ---
 
 ## 7. Validación de los links antes de guardarlos en la BD
 
-En la BD siempre se guarda una URL (`cv_url`, `constancia_estudios_url`). Antes de cada `INSERT`/`UPDATE`, `Postulaciones::validarDocumentos()` llama a `Storage::isAllowedUrl($url)`, que solo acepta:
+En la BD siempre se guarda una URL (`cv_url`, `constancia_estudios_url`). Antes de cada `INSERT`/`UPDATE`, `Postulaciones::validarDocumentos()` llama a `Storage::esUrlPermitida($url)`, que solo acepta:
 
 1. **URLs del almacenamiento activo:** empiezan con `STORAGE_PUBLIC_URL/`, el resto es una llave válida (solo `[A-Za-z0-9_-]`, segmentos separados por `/` y una extensión, sin `..`) **y el archivo existe de verdad**: `is_file` en local, `HEAD` firmado en S3.
-2. **URLs de almacenamientos anteriores** listados en `STORAGE_ALLOWED_URLS`: se valida el prefijo y el formato de la llave, pero no la existencia, porque el driver activo no puede consultar otro almacenamiento.
+2. **URLs de almacenamientos anteriores** listados en `STORAGE_ALLOWED_URLS`: se valida el prefijo y el formato de la llave, pero no la existencia, porque no se puede consultar el almacenamiento viejo.
 
 Se rechaza cualquier otra URL: Google Drive, sitios externos, `javascript:`, rutas inventadas o archivos que no existen. Mensaje: `El enlace del CV no pertenece al almacenamiento del sistema`.
 
@@ -267,18 +271,52 @@ En **edición**, los campos que no se envían conservan su valor actual. Por eso
 
 ## 9. Consistencia: archivos huérfanos y reemplazos
 
-`Response::success()` y `Response::error()` terminan el script con `exit`, así que no hay un "después" normal donde limpiar. `UploadTransaction` registra un `register_shutdown_function` que corre al final de **toda** petición en la que se creó, y revisa `Response::$lastCode`:
+> **Deuda técnica:** el backend **no borra archivos**. La limpieza se hará con un **cronjob** (pendiente).
 
-| Resultado | Qué se borra |
-|---|---|
-| `code = 1` (éxito) | Los archivos **reemplazados**: el CV o la constancia anterior al editar, los archivos de una postulación retirada que se reactiva, o la constancia quitada con `quitar_constancia=1`. |
-| Cualquier otro resultado (validación, duplicado, error de BD, excepción, falla de S3) | Los archivos **nuevos** subidos en esta petición. |
+### Decisión: primero subir, después insertar
 
-Así, un archivo subido sin fila en la BD se elimina, y un archivo viejo solo se elimina cuando el nuevo ya quedó guardado.
+El orden es **subir archivo → INSERT con el link**, en un solo INSERT y sin columnas extra en la BD.
 
-- `replaceOnSuccess()` solo marca URLs que pertenecen al driver activo (`owns`). Las URLs de almacenamientos anteriores nunca se borran automáticamente.
-- El borrado lógico (`DELETE`, `estado = 0`) **no** borra archivos: si el estudiante se vuelve a postular, la postulación se reactiva y entonces sí se reemplazan.
-- Si borrar falla en la limpieza, el error se ignora en silencio porque la respuesta ya se envió. Puede quedar un archivo huérfano, pero nunca una fila con un link roto.
+Se evaluó y **se descartó** insertar primero la fila con una bandera `upload_confirmed = FALSE` y marcarla `TRUE` después de subir. Motivos:
+
+1. Una postulación tiene **dos archivos** (CV y constancia) y una sola bandera no puede decir cuál falló.
+2. **Toda consulta** (listados, reportes, contadores, JOINs futuros) tendría que acordarse de filtrar `upload_confirmed = 1`. Si alguien lo olvida, el reclutador ve un link roto.
+3. La fila fallida ocupa la llave única `oportunidad + estudiante` y obliga a programar reglas para "reutilizar" filas sin confirmar.
+4. **No elimina el cronjob.** Al probarlo, dos intentos fallidos seguidos de un reintento exitoso dejaron dos PDFs en disco sin ninguna fila, y al editar el CV el archivo viejo queda igual de huérfano.
+
+Con el orden elegido, el peor caso es **un archivo sin fila** (nadie lo ve, solo ocupa espacio) y nunca **una fila sin archivo** (link roto). Además `esUrlPermitida()` comprueba que el archivo exista antes de guardar el link.
+
+### Cómo puede quedar un archivo huérfano
+
+Un archivo es "huérfano" cuando está en el almacenamiento (carpeta `uploads/` o bucket) pero **ninguna fila** de `postulaciones` tiene su link. Pasa en estos casos:
+
+| # | Caso | Qué pasa paso a paso | Archivo huérfano |
+|---|---|---|---|
+| 1 | Editar con CV o constancia nueva (`accion=actualizar`) | Se sube el archivo nuevo → `UPDATE` cambia el link al nuevo | El archivo **anterior** |
+| 2 | Editar con `quitar_constancia=1` | `UPDATE` deja `constancia_estudios_url = NULL` | La constancia **anterior** |
+| 3 | Reactivar una postulación retirada | Se suben archivos nuevos → `UPDATE` reemplaza los links de la fila retirada | Los archivos de la postulación **retirada** |
+| 4 | Falla después de subir el CV, al subir la constancia (disco lleno, S3 caído) | CV subido → constancia falla → respuesta 500, no hay INSERT | El **CV** recién subido |
+| 5 | Falla el INSERT/UPDATE (BD caída, dos peticiones iguales al mismo tiempo que chocan con la llave única) | Archivos subidos → la BD rechaza → respuesta de error | Los archivos **recién subidos** |
+| 6 | El proceso PHP muere a la mitad (timeout, reinicio de Apache, el usuario corta la conexión) | Archivos subidos → el script no llega al INSERT | Los archivos **recién subidos** |
+
+Los casos 1 a 3 pasan en **uso normal**, todos los días. Los casos 4 a 6 son fallas, y son raros porque casi todas las validaciones (formulario, archivos y reglas de negocio) se hacen **antes** de subir.
+
+El borrado lógico (`DELETE`, `estado = 0`) **no** deja huérfanos: la fila sigue existiendo y sus links siguen siendo válidos.
+
+### Por qué hace falta un cronjob
+
+- **No se puede borrar en la misma petición.** `Response::success()` y `Response::error()` terminan el script con `exit`, así que no hay un "después" donde limpiar. En los casos 4 a 6 el error ocurre justo cuando no se puede hacer nada más.
+- **Borrar el archivo viejo al editar (casos 1 a 3) también es riesgoso** dentro de la petición. Si se borra antes del `UPDATE` y el `UPDATE` falla, la fila queda con un link roto. Si se borra después, el script ya terminó con `success`.
+- **Un proceso aparte, cada cierto tiempo, cubre todos los casos con una sola regla:** "archivo sin fila que lo use = se borra". No importa por qué quedó huérfano.
+
+### Qué debe hacer el cronjob (pendiente)
+
+1. Listar los archivos del almacenamiento (carpeta `uploads/postulaciones/` o el bucket).
+2. Leer todos los `cv_url` y `constancia_estudios_url` de `postulaciones`, **incluidas** las filas con `estado = 0`.
+3. Borrar los archivos que no aparecen en ninguna fila **y** tienen más de 24 horas. El margen evita borrar un archivo que se acaba de subir y cuyo INSERT todavía no termina.
+4. Registrar en un log cuántos archivos borró.
+
+Frecuencia sugerida: una vez al día, en horario de poco uso.
 
 ---
 
@@ -330,7 +368,7 @@ Solo funciona mientras la postulación está `pendiente`. PHP no procesa `multip
 | `accion` | Sí | `actualizar` |
 | `id` | Sí | id de la postulación |
 | `carrera_id`, `edad`, `ciclo_universitario`, `mensaje_presentacion` | No | Si no se envían, conservan su valor |
-| `cv` | No | Si se envía, reemplaza el CV anterior (el viejo se borra) |
+| `cv` | No | Si se envía, reemplaza el CV anterior (el archivo viejo queda para el cronjob, sección 9) |
 | `constancia_estudios` | No | Si se envía, reemplaza la anterior |
 | `quitar_constancia` | No | `1` para eliminar la constancia actual |
 
@@ -350,17 +388,17 @@ No toca archivos. Los campos ausentes conservan su valor. Los antiguos `cv_url`/
 
 ### Mensajes de error que puede mostrar el frontend
 
-Todos llegan como `{"code": -1, "message": "..."}`:
+Todos llegan como `{"code": -1, "message": "..."}` con el código HTTP indicado:
 
-- `El campo edad es obligatorio` / `El campo edad debe ser un número entero entre 15 y 99`
-- `La carrera seleccionada no existe`
-- `El archivo de CV es obligatorio.`
-- `Formato no permitido para CV. Formatos aceptados: pdf.`
-- `El contenido del archivo de CV no es un pdf válido.`
-- `El archivo de CV no debe superar 5 MB.`
-- `El estudiante ya se postuló a esta oportunidad`
-- `La postulación ya está en proceso y no se puede editar`
-- `No se pudo guardar el archivo. Inténtelo de nuevo.` (falla de disco/S3 o `.env` mal configurado)
+- `El campo edad es obligatorio` / `El campo edad debe ser un número entero entre 15 y 99` (400)
+- `La carrera seleccionada no existe` (404)
+- `El archivo de CV es obligatorio.` (400)
+- `Formato no permitido para CV. Formatos aceptados: pdf.` (415)
+- `El contenido del archivo de CV no es un pdf válido.` (415)
+- `El archivo de CV no debe superar 5 MB.` (413)
+- `El estudiante ya se postuló a esta oportunidad` (409)
+- `La postulación ya está en proceso y no se puede editar` (409)
+- `No se pudo guardar el archivo. Inténtelo de nuevo.` (500: falla de disco/S3 o `.env` mal configurado)
 
 ---
 
@@ -387,10 +425,11 @@ Las columnas son `NULL` en la tabla para no romper postulaciones anteriores. La 
 
 - **Archivos:** lista blanca de extensiones, MIME por contenido y firma binaria. El nombre se genera aleatoriamente, así que el nombre del usuario nunca llega al disco.
 - **Carpeta local (`uploads/.htaccess`):** deniega todo excepto `.pdf/.jpg/.jpeg/.png`, desactiva el listado de directorio, apaga el motor PHP (`php_flag engine off`, `RemoveHandler`) y envía `X-Content-Type-Options: nosniff`. Se probó que un `.php` copiado a mano a `uploads/` responde **403**.
-- **Llaves:** `BaseStorage::isSafeKey()` exige el patrón `segmento/segmento.ext`. `LocalStorage` además verifica con `realpath` que el archivo resuelto quede dentro de la carpeta raíz antes de leerlo o borrarlo.
+- **Llaves:** `Storage::PATRON_LLAVE` solo acepta `segmento/segmento.ext` con letras, números, `_` y `-`. No admite `.` dentro de los segmentos, así que `..`, `\` y rutas absolutas no pueden salir de la carpeta raíz.
 - **Links en BD:** solo URLs del almacenamiento del sistema (sección 7).
 - **S3:** credenciales solo en el `.env` (que ya está en `.gitignore`). El usuario IAM debe tener el mínimo de permisos (Put/Get/Delete sobre el bucket).
 - **Archivos de usuarios fuera de git:** `uploads/*` está en `.gitignore`.
+- **Rate limit (pendiente, al desplegar):** `postulaciones.php` es el endpoint más caro (disco/S3). Ver sección 14, punto 4.
 
 ---
 
@@ -409,17 +448,18 @@ Se hicieron contra Apache/XAMPP local con `curl`:
 | Estudiante inexistente | Rechazado **antes** de subir; `uploads/` quedó vacío |
 | Postulación válida con CV y constancia | Fila creada con `carrera_id`, `edad`, `ciclo` y dos URLs locales; archivos en `uploads/postulaciones/...` |
 | Abrir el `cv_url` guardado | HTTP 200, `application/pdf` |
-| Postulación duplicada | Rechazada y el archivo nuevo se **borró** |
-| Editar con CV nuevo + `quitar_constancia=1` | CV viejo y constancia borrados del disco, BD actualizada |
+| Postulación duplicada | Rechazada (409) |
+| Editar con CV nuevo + `quitar_constancia=1` | BD actualizada con el link nuevo |
 | `PUT` JSON cambiando solo el ciclo | OK, archivos sin cambios |
 | `PUT` con `carrera_id=999` | `La carrera seleccionada no existe` |
 | `.php` dentro de `uploads/` | HTTP 403 |
 | Fila con `cv_url` de Google Drive al editar | `El enlace del CV no pertenece al almacenamiento del sistema` |
-| Subir constancia y fallar después al validar el CV | La constancia recién subida se **borró** (rollback) |
+
+Después de simplificar el módulo (una sola clase `Storage`, sin limpieza automática) se repitió la prueba local con `curl`: PDF falso (415), sin CV (400), postulación válida (200, archivo en `uploads/postulaciones/cv/...`), duplicada (409), descarga del link (200 `application/pdf`) y edición con CV nuevo (200, link actualizado en BD).
 
 Los datos y archivos de prueba se eliminaron al terminar.
 
-**No probado:** el driver `S3Storage` contra un bucket real, porque no había credenciales disponibles. La firma sigue la especificación AWS Signature V4. Antes de usarlo en producción, hacer una prueba de subida, `HEAD` y borrado con un bucket de prueba.
+**No probado:** el modo S3 contra un bucket real, porque no había credenciales disponibles. La firma sigue la especificación AWS Signature V4. Antes de usarlo en producción, hacer una prueba de subida, `HEAD` y borrado con un bucket de prueba.
 
 ---
 
@@ -428,6 +468,37 @@ Los datos y archivos de prueba se eliminaron al terminar.
 1. **Autenticación en `postulaciones.php`.** El endpoint **no** llama a `requireAuth()` (así estaba antes de estos cambios y no se modificó). Hoy cualquiera puede subir archivos y el `estudiante_id` viene del cliente. Se recomienda:
    - `requireAuth()` en `POST/PUT/DELETE` (esto también valida el token CSRF; el frontend debe mandar `X-CSRF-Token` en el `fetch` con `FormData`).
    - Tomar `estudiante_id` de la sesión (`$auth_data['id']`) en lugar del formulario, y verificar en `accion=actualizar`/`PUT`/`DELETE` que la postulación sea del usuario.
-2. **Privacidad en S3.** Un CV contiene datos personales. Con un bucket público, cualquiera que tenga el link (difícil de adivinar, pero compartible) puede abrirlo. Una alternativa más privada es un bucket privado con URLs prefirmadas de corta duración, generadas en el `GET`. Para eso se agregaría un método `temporaryUrl()` en `FileStorage`; el resto del diseño no cambia.
-3. **Archivos huérfanos residuales.** Si falla un borrado durante la limpieza, puede quedar un archivo sin fila. Un script periódico puede comparar el contenido de `uploads/` (o del bucket) con las URLs de la BD.
-4. **Frontend:** ajustar `apiFetch` para `FormData` (sección 10.1) y cambiar `PostularseForm.jsx` de inputs de URL a `<input type="file">` más los campos `carrera_id`, `edad` y `ciclo_universitario`.
+2. **Privacidad en S3.** Un CV contiene datos personales. Con un bucket público, cualquiera que tenga el link (difícil de adivinar, pero compartible) puede abrirlo. Una alternativa más privada es un bucket privado con URLs prefirmadas de corta duración, generadas en el `GET`. Para eso se agregaría una función `Storage::urlTemporal()`; el resto no cambia.
+3. **Cronjob de archivos huérfanos (deuda técnica).** El backend no borra archivos reemplazados ni los de peticiones fallidas. Ver sección 9 para lo que debe hacer el cronjob.
+4. **Al desplegar: rate limit explícito en Apache para `postulaciones.php` (anotación de despliegue).**
+
+   Este es el endpoint **más caro** del sistema. Cada `POST` recibe hasta 2 archivos de `UPLOAD_MAX_MB` cada uno, los lee completos (MIME y firma), los escribe en disco o los sube a S3 (S3 cobra por almacenamiento, peticiones y transferencia) y hace varias consultas a la BD. Además, hoy no exige sesión (punto 1). Sin límite, un solo cliente puede llenar el disco o subir la factura de S3 con un script.
+
+   > **Ojo:** `mod_ratelimit` de Apache **no sirve** para esto: limita el **ancho de banda** de la respuesta, no la cantidad de peticiones.
+
+   **a) Límite de tamaño del cuerpo (Apache core, no necesita módulos extra).** Corta la petición antes de que llegue a PHP:
+
+   ```apache
+   <Location "/SistemaControlPracticas/api/endpoints/postulaciones.php">
+       # 2 archivos de 5 MB + campos de texto. Ajustar si cambia UPLOAD_MAX_MB.
+       LimitRequestBody 11534336
+   </Location>
+   ```
+
+   **b) Límite de peticiones por IP, solo para `POST` en este endpoint (con `mod_qos`).** Ejemplo de 10 postulaciones por IP cada 10 minutos:
+
+   ```apache
+   <IfModule mod_qos.c>
+       # Marca las peticiones POST a postulaciones.php...
+       SetEnvIf Request_URI "^/SistemaControlPracticas/api/endpoints/postulaciones\.php$" QS_Limit=1
+       # ...y quita la marca si no son POST (GET, PUT, DELETE no se limitan aquí)
+       SetEnvIf Request_Method "!^POST$" !QS_Limit
+       # Máximo 10 peticiones marcadas por IP cada 600 segundos; después responde error
+       QS_ClientEventLimitCount 10 600 QS_Limit
+   </IfModule>
+   ```
+
+   Alternativas si `mod_qos` no está disponible en el servidor: una regla de ModSecurity, `mod_evasive`, o el rate limiting del proxy o CDN que esté delante (Nginx `limit_req`, Cloudflare).
+
+   **Pendiente de probar:** estas configuraciones no se probaron en este entorno (XAMPP local). Probarlas en el servidor real antes de producción. Los valores (10 cada 10 minutos, 11 MB) son un punto de partida: ajustarlos según el uso real.
+5. **Frontend:** ajustar `apiFetch` para `FormData` (sección 10.1) y cambiar `PostularseForm.jsx` de inputs de URL a `<input type="file">` más los campos `carrera_id`, `edad` y `ciclo_universitario`.
