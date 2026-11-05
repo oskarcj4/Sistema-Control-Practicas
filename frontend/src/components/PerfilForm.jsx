@@ -24,7 +24,7 @@ const formVacio = {
   biografia: "",
 };
 
-export default function PerfilForm() {
+export default function PerfilForm({ onVolver, onGuardado }) {
   const { usuario, login } = useContext(AuthContext);
   // Reusamos las listas de instituciones y carreras que ya carga RegisterContext.
   const { instituciones, carreras, cargandoCarreras, setInstitucionId } = useContext(RegisterContext);
@@ -175,6 +175,12 @@ export default function PerfilForm() {
         username: datos.username,
         name: `${datos.nombre} ${datos.apellido}`,
       });
+
+      if (onGuardado) {
+        setTimeout(() => {
+          onGuardado();
+        }, 1200);
+      }
     } catch (err) {
       setMensaje({ tipo: "error", texto: err.message });
     } finally {
@@ -319,13 +325,24 @@ export default function PerfilForm() {
         />
       </Campo>
 
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full cursor-pointer rounded-lg bg-indigo-600 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {enviando ? "Guardando..." : "Guardar cambios"}
-      </button>
+      <div className="flex gap-3 pt-2">
+        {onVolver && (
+          <button
+            type="button"
+            onClick={onVolver}
+            className="flex-1 cursor-pointer rounded-lg border border-slate-300 py-2.5 font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={enviando}
+          className="flex-1 cursor-pointer rounded-lg bg-indigo-600 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {enviando ? "Guardando..." : "Guardar cambios"}
+        </button>
+      </div>
     </form>
   );
 }

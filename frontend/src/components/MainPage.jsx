@@ -2,7 +2,7 @@ import { useState } from "react";
 import Feed from "./Feed";
 import { MisPostulaciones } from "./MisPostulaciones";
 import Navbar from "./Navbar";
-import PerfilForm from "./PerfilForm";
+import PerfilPage from "./PerfilPage";
 import TablaUsuarios from "./TablaUsuarios";
 import EstadoVacio from "./ui/EstadoVacio";
 // Lista de pestañas del Navbar.
@@ -47,7 +47,7 @@ export default function MainPage() {
 
         {pestanaActiva === "admin" && (<TablaUsuarios/>)}
 
-        {pestanaActiva === "perfil" && <PerfilForm />}
+        {pestanaActiva === "perfil" && <PerfilPage />}
       </main>
     </div>
   );

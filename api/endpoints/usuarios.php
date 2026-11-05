@@ -41,7 +41,7 @@ if ($auth_data !== null) {
         # Un usuario normal no puede suspender/reactivar su cuenta
         $data['estado_cuenta'] = 'activo';
     }
-    if ($method === 'DELETE' && !$esAdmin) {
+    if ($method === 'DELETE' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId) {
         Response::invalidAccess();
     }
 }
