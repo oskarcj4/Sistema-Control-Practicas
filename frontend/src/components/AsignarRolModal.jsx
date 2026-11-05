@@ -14,22 +14,20 @@ import { COLOR_ROL, TEXTO_ROL } from "../helpers/estilos";
 //   onCerrar         -> cierra el modal
 export default function AsignarRolModal({
   usuario,
-  rolesAsignados,
   rolesDisponibles,
   onAsignar,
   onQuitar,
   onCerrar,
 }) {
-  // Rol elegido en el <select>. Es un estado local, solo de este modal.
   const [rolElegido, setRolElegido] = useState("");
+  const [rolesAsignados, setRolesAsignados] = useState([]);
+  const [errorCarga, setErrorCarga] = useState(null);
 
   if (!usuario) {
     return null;
   }
 
-  // ⚠️ IMPORTANTE: Relación muchos a muchos.
-  // Un usuario puede tener varios roles. Para no ofrecer un rol que YA tiene,
-  // filtramos la lista de roles disponibles quitando los que aparecen en rolesAsignados.
+
   const idsAsignados = rolesAsignados.map((asignacion) => Number(asignacion.id_rol));
   const rolesQueFaltan = rolesDisponibles.filter(
     (rol) => !idsAsignados.includes(Number(rol.id))
@@ -58,7 +56,7 @@ export default function AsignarRolModal({
           className="absolute right-4 top-4 cursor-pointer rounded-full px-2 text-2xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           aria-label="Cerrar"
         >
-          ×
+
         </button>
 
         <h2 className="text-xl font-bold text-slate-800">Roles de @{usuario.username}</h2>

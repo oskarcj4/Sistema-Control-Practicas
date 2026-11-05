@@ -9,8 +9,7 @@ import {
 } from "../helpers/estilos";
 import NotificacionesDropdown from "./NotificacionesDropdown";
 
-// T1 - Barra de navegación global.
-//
+
 // Props:
 //   pestanas: arreglo { id, texto } con las pestañas a mostrar, de debe decidir qué pestañas recibe según el rol. T10
 //   pestanaActiva : id de la pestaña seleccionada
@@ -35,7 +34,12 @@ export default function Navbar({
       return usuario.isAdmin
     }
     if (p.id === "nueva-oferta"){
-      return (usuario.rol === ROL_RECLUTADOR|| usuario.rol === ROL_ADMIN)
+      if (usuario.rol === ROL_RECLUTADOR|| usuario.rol === ROL_ADMIN){
+        return true
+      }
+      else{
+        return false;
+      }
     }
     return true;
 
@@ -87,7 +91,7 @@ export default function Navbar({
       {/* Fila inferior: pestañas. overflow-x-auto permite deslizar en celular. */}
       <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
         {/* Cambiar a pestanasVisibles para produccion */}
-        {pestanas.map((pestana) => {
+        {pestanasVisibles.map((pestana) => {
           const activa = pestana.id === pestanaActiva;
           return (
             <button

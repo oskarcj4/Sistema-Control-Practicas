@@ -4,6 +4,9 @@ import {
   formatearFecha,
 } from "../helpers/estilos";
 
+
+// COMPONENTE REUTILIZABLE
+
 // T2 - Tarjeta visual de una oportunidad de práctica.
 // No llama a la API: recibe todo por props.
 //

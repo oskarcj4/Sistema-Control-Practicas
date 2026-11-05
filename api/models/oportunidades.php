@@ -41,6 +41,7 @@ class Oportunidades {
             $this->response->error("La modalidad no es valida");
         }
         // Paginacion por cursor
+        // O(1)
         // El cliente envia un puntero con el ultimo registro que visito.
         try {
             $query = "SELECT o.id, o.titulo, o.descripcion, o.requisitos,

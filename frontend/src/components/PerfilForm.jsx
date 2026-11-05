@@ -146,7 +146,7 @@ export default function PerfilForm() {
       return;
     }
 
-    // ⚠️ IMPORTANTE: el PUT de usuarios.php necesita "id" además de los campos.
+    // IMPORTANTE: el PUT de usuarios.php necesita "id" además de los campos.
     // - id: le dice al backend QUÉ usuario actualizar (sale del AuthContext).
     // Los roles no se cambian aquí: se manejan en asignaciones_roles.php.
     const datos = {
@@ -168,7 +168,7 @@ export default function PerfilForm() {
 
       setMensaje({ tipo: "ok", texto: "Perfil actualizado correctamente" });
 
-      // ⚠️ IMPORTANTE: actualizamos el usuario del AuthContext para que el Navbar
+      // actualizamos el usuario del AuthContext para que el Navbar
       // muestre el @username nuevo sin tener que recargar la página.
       login({
         ...usuario,

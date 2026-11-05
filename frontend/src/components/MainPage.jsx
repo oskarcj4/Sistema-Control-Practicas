@@ -1,9 +1,9 @@
 import { useState } from "react";
+import Feed from "./Feed";
 import Navbar from "./Navbar";
 import PerfilForm from "./PerfilForm";
 import TablaUsuarios from "./TablaUsuarios";
 import EstadoVacio from "./ui/EstadoVacio";
-
 // Lista de pestañas del Navbar.
 // T10 (tuya): filtra este arreglo según el rol del usuario
 //    (ej: "nueva-oferta" solo Reclutador/Admin, "admin" solo Admin).
@@ -31,15 +31,7 @@ export default function MainPage() {
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Se muestra solo el bloque de la pestaña activa */}
 
-        {pestanaActiva === "feed" && (
-          // T3 / T4 / T6: aquí va el useEffect, el buscador, el .map() con <OportunidadCard />
-          //   y el <DetalleModal />.
-          <EstadoVacio
-            icono="🔎"
-            titulo="Feed de oportunidades"
-            mensaje="Aquí se mostrarán las prácticas disponibles (pendiente T3)."
-          />
-        )}
+        {pestanaActiva === "feed" && <Feed/>}
 
         {pestanaActiva === "mis-postulaciones" && (
           // T9: aquí va la carga con useEffect y el .map() con <PostulacionCard />

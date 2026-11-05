@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
 import { formatearFecha } from "../helpers/estilos";
+import AsignarRolModal from "./AsignarRolModal";
 
 // T15 - Tabla de usuarios del sistema (vista del Administrador).
 // Solo dibuja. La carga (GET usuarios.php) y el PUT de suspender los haces tú.
@@ -13,11 +14,12 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
   const [cargando, setCargando] = useState(true);
   const [usuarios, setUsuarios] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
+  const [usuarioParaRoles, setUsuarioParaRoles] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
 
     async function cargarUsuarios() {
-      try{const res = await apiFetch("usuarios.php", {signal: controlador.signal});
+      try{const res = await apiFetch("usuarios.php", {signal: controller.signal});
        setUsuarios(res.data);
       }
       catch(err) {
@@ -35,6 +37,32 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
     cargarUsuarios();
   }, [])
 
+
+    async function handleCambiarEstado(u) {
+      const nuevoEstado = u.estado_cuenta === "activo" ? "suspendido": "activo";
+    try{
+      await apiFetch("usuarios.php", {
+      method: "PUT",
+      body: {
+        id: u.id,
+        estado_cuenta: nuevoEstado,
+        username: u.username,
+        nombre: u.nombre,
+        apellido: u.apellido,
+        email: u.email,
+      }
+    } );
+    setUsuarios((prev) =>
+      prev.map((item) =>
+        item.id === u.id ? { ...item, estado_cuenta: nuevoEstado } : item
+      )
+    );
+    }
+
+    catch(err){
+        alert("Error al cambiar estado: " + err.message);
+    }
+  }
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[700px] text-left text-sm">
@@ -94,17 +122,15 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
                         Roles
                       </button>
                     )}
-                    {onCambiarEstado && (
                       <button
                         type="button"
-                        onClick={() => onCambiarEstado(u)}
+                        onClick={() => handleCambiarEstado(u)}
                         className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-white ${
                           estaActivo ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
                         }`}
                       >
                         {estaActivo ? "Suspender" : "Reactivar"}
                       </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -112,6 +138,15 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
           })}
         </tbody>
       </table>
+
+      { usuarioParaRoles && (
+        <AsignarRolModal
+        usuario={usuarioParaRoles}
+        onCerrar={() => setUsuarioParaRoles(null)}
+        />
+      )
+      }
+
     </div>
   );
 }
