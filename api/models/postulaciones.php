@@ -52,7 +52,7 @@ class Postulaciones {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -60,7 +60,7 @@ class Postulaciones {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare(self::SELECT_BASE . " AND p.id = ?");
@@ -68,12 +68,12 @@ class Postulaciones {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Postulación no encontrada");
+                $this->response->error("Postulación no encontrada", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -81,7 +81,7 @@ class Postulaciones {
     # Postulaciones de un estudiante (seguimiento)
     public function findByEstudiante(int $estudiante_id){
         if ($estudiante_id <= 0) {
-            $this->response->error("El ID del estudiante es invalido");
+            $this->response->error("El ID del estudiante es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare(self::SELECT_BASE . " AND p.estudiante_id = ? ORDER BY p.fecha_postulacion DESC");
@@ -89,7 +89,7 @@ class Postulaciones {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -97,7 +97,7 @@ class Postulaciones {
     # Postulantes de una oportunidad (vista del reclutador)
     public function findByOportunidad(int $oportunidad_id){
         if ($oportunidad_id <= 0) {
-            $this->response->error("El ID de la oportunidad es invalido");
+            $this->response->error("El ID de la oportunidad es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare(self::SELECT_BASE . " AND p.oportunidad_id = ? ORDER BY p.fecha_postulacion");
@@ -105,7 +105,7 @@ class Postulaciones {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -128,7 +128,7 @@ class Postulaciones {
 
             if ($valor === '') {
                 if ($regla['requerido']) {
-                    $this->response->error("El campo $etiqueta es obligatorio");
+                    $this->response->error("El campo $etiqueta es obligatorio", -1, 400);
                 }
                 $resultado[$campo] = null;
                 continue;
@@ -140,12 +140,12 @@ class Postulaciones {
                 ]);
                 if ($numero === false) {
                     $rango = $regla['max'] < 2147483647 ? " entre {$regla['min']} y {$regla['max']}" : '';
-                    $this->response->error("El campo $etiqueta debe ser un número entero$rango");
+                    $this->response->error("El campo $etiqueta debe ser un número entero$rango", -1, 400);
                 }
                 $resultado[$campo] = $numero;
             } else {
                 if (mb_strlen($valor) > $regla['max']) {
-                    $this->response->error("El campo $etiqueta no debe superar {$regla['max']} caracteres");
+                    $this->response->error("El campo $etiqueta no debe superar {$regla['max']} caracteres", -1, 400);
                 }
                 $resultado[$campo] = $valor;
             }
@@ -159,10 +159,10 @@ class Postulaciones {
             $stmt = $this->connection->prepare("SELECT id FROM carreras WHERE id = ? AND estado = 1");
             $stmt->execute([$resultado['carrera_id']]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("La carrera seleccionada no existe");
+                $this->response->error("La carrera seleccionada no existe", -1, 404);
             }
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
 
@@ -178,11 +178,11 @@ class Postulaciones {
      */
     public function validarAlta(int $oportunidad_id, int $estudiante_id): ?array {
         if ($oportunidad_id <= 0) {
-            $this->response->error("La oportunidad es obligatoria");
+            $this->response->error("La oportunidad es obligatoria", -1, 400);
         }
 
         if ($estudiante_id <= 0) {
-            $this->response->error("El estudiante es obligatorio");
+            $this->response->error("El estudiante es obligatorio", -1, 400);
         }
 
         try {
@@ -192,13 +192,13 @@ class Postulaciones {
                                                 WHERE u.id = ? AND r.nombre = 'estudiante' AND u.estado = 1 AND u.estado_cuenta = 'activo'");
             $stmt->execute([$estudiante_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("El usuario no existe, no es estudiante o no está activo");
+                $this->response->error("El usuario no existe, no es estudiante o no está activo", -1, 404);
             }
 
             $stmt = $this->connection->prepare("SELECT id FROM oportunidades WHERE id = ? AND estado = 1 AND estado_oportunidad = 'activa' AND fecha_cierre >= CURDATE()");
             $stmt->execute([$oportunidad_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("La oportunidad no existe o ya no recibe postulaciones");
+                $this->response->error("La oportunidad no existe o ya no recibe postulaciones", -1, 404);
             }
 
             # Si la retiró antes (estado = 0) se reactiva; la llave única oportunidad+estudiante sigue ocupada
@@ -207,12 +207,12 @@ class Postulaciones {
             $previa = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($previa && (int)$previa['estado'] === 1) {
-                $this->response->error("El estudiante ya se postuló a esta oportunidad");
+                $this->response->error("El estudiante ya se postuló a esta oportunidad", -1, 409);
             }
 
             return $previa ?: null;
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -241,15 +241,15 @@ class Postulaciones {
             $stmt->execute([$oportunidad_id, $estudiante_id, ...array_values($campos)]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo registrar la postulación");
+                $this->response->error("No se pudo registrar la postulación", -1, 500);
             }
 
             $this->response->success("Postulación registrada con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("El estudiante ya se postuló a esta oportunidad");
+                $this->response->error("El estudiante ya se postuló a esta oportunidad", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -260,7 +260,7 @@ class Postulaciones {
      */
     public function buscarEditable(int $id): array {
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -271,15 +271,15 @@ class Postulaciones {
             $actual = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$actual) {
-                $this->response->error("Postulación no encontrada");
+                $this->response->error("Postulación no encontrada", -1, 404);
             }
             if ($actual['estado_postulacion'] !== 'pendiente') {
-                $this->response->error("La postulación ya está en proceso y no se puede editar");
+                $this->response->error("La postulación ya está en proceso y no se puede editar", -1, 409);
             }
 
             return $actual;
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -287,7 +287,7 @@ class Postulaciones {
     # Actualizar datos del formulario y documentos (solo mientras está pendiente)
     public function actualizar(int $id, array $formulario, array $documentos){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         $campos = array_merge($formulario, $this->validarDocumentos($documentos));
@@ -300,12 +300,12 @@ class Postulaciones {
             $stmt->execute([...array_values($campos), $id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Postulación no encontrada, ya en proceso o sin cambios");
+                $this->response->error("Postulación no encontrada, ya en proceso o sin cambios", -1, 404);
             }
 
             $this->response->success("Postulación actualizada correctamente");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -318,15 +318,15 @@ class Postulaciones {
         $actualizado_por    = (int)($arrayData["actualizado_por"] ?? 0);
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         if (!in_array($estado_postulacion, self::ESTADOS_POSTULACION, true)) {
-            $this->response->error("El estado no es valido");
+            $this->response->error("El estado no es valido", -1, 400);
         }
 
         if ($actualizado_por <= 0) {
-            $this->response->error("El usuario que actualiza es obligatorio");
+            $this->response->error("El usuario que actualiza es obligatorio", -1, 400);
         }
 
         try {
@@ -335,17 +335,17 @@ class Postulaciones {
             $postulacion = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$postulacion) {
-                $this->response->error("Postulación no encontrada");
+                $this->response->error("Postulación no encontrada", -1, 404);
             }
 
             if ($postulacion['estado_postulacion'] === $estado_postulacion) {
-                $this->response->error("La postulación ya tiene ese estado");
+                $this->response->error("La postulación ya tiene ese estado", -1, 409);
             }
 
             $stmt = $this->connection->prepare("SELECT id FROM usuarios WHERE id = ? AND estado = 1 AND estado_cuenta = 'activo'");
             $stmt->execute([$actualizado_por]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("El usuario que actualiza no existe o no está activo");
+                $this->response->error("El usuario que actualiza no existe o no está activo", -1, 404);
             }
 
             $this->connection->beginTransaction();
@@ -365,7 +365,7 @@ class Postulaciones {
             if ($this->connection->inTransaction()) {
                 $this->connection->rollBack();
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -373,7 +373,7 @@ class Postulaciones {
     # Eliminar postulación (borrado lógico: el estudiante la retira mientras está pendiente)
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -382,12 +382,12 @@ class Postulaciones {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID o la postulación ya está en proceso");
+                $this->response->error("No se encontro el ID o la postulación ya está en proceso", -1, 404);
             }
 
             $this->response->success("Postulación eliminada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -402,15 +402,15 @@ class Postulaciones {
         $constancia_estudios_url = trim((string)($documentos['constancia_estudios_url'] ?? ''));
 
         if ($cv_url === '') {
-            $this->response->error("El CV es obligatorio");
+            $this->response->error("El CV es obligatorio", -1, 400);
         }
 
         if (!Storage::isAllowedUrl($cv_url)) {
-            $this->response->error("El enlace del CV no pertenece al almacenamiento del sistema");
+            $this->response->error("El enlace del CV no pertenece al almacenamiento del sistema", -1, 400);
         }
 
         if ($constancia_estudios_url !== '' && !Storage::isAllowedUrl($constancia_estudios_url)) {
-            $this->response->error("El enlace de la constancia no pertenece al almacenamiento del sistema");
+            $this->response->error("El enlace de la constancia no pertenece al almacenamiento del sistema", -1, 400);
         }
 
         return [

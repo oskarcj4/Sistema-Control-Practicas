@@ -30,7 +30,7 @@ class Oportunidades {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -38,7 +38,7 @@ class Oportunidades {
     # Feed: oportunidades activas y vigentes, filtros opcionales por carrera y modalidad
     public function feed(int $cursor=0, int $carrera_id = 0, string $modalidad = '', $limit=20){
         if ($modalidad !== '' && !in_array($modalidad, self::MODALIDADES, true)) {
-            $this->response->error("La modalidad no es valida");
+            $this->response->error("La modalidad no es valida", -1, 400);
         }
         // Paginacion por cursor
         // O(1)
@@ -80,7 +80,7 @@ class Oportunidades {
           $stmt->execute();
           $this->response->success($stmt->fetchAll(PDO::FETCH_ASSOC));
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -88,7 +88,7 @@ class Oportunidades {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT o.id, o.titulo, o.descripcion, o.requisitos,
@@ -106,12 +106,12 @@ class Oportunidades {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Oportunidad no encontrada");
+                $this->response->error("Oportunidad no encontrada", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -119,7 +119,7 @@ class Oportunidades {
     # Filtrar por creador (las ofertas que publicó un reclutador)
     public function findByCreador(int $creado_por){
         if ($creado_por <= 0) {
-            $this->response->error("El ID del creador es invalido");
+            $this->response->error("El ID del creador es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT o.id, o.titulo, o.descripcion, o.requisitos,
@@ -137,7 +137,7 @@ class Oportunidades {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -148,7 +148,7 @@ class Oportunidades {
         $data = $this->validate($arrayData);
 
         if ($creado_por <= 0) {
-            $this->response->error("El creador es obligatorio");
+            $this->response->error("El creador es obligatorio", -1, 400);
         }
 
         try {
@@ -164,11 +164,11 @@ class Oportunidades {
             $creador = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$creador) {
-                $this->response->error("El creador no existe o no está activo");
+                $this->response->error("El creador no existe o no está activo", -1, 404);
             }
 
             if ((int)$creador['autorizado_publicar'] !== 1 && (int)$creador['es_admin'] !== 1) {
-                $this->response->error("El usuario no está autorizado para publicar oportunidades");
+                $this->response->error("El usuario no está autorizado para publicar oportunidades", -1, 403);
             }
 
             $query = "INSERT INTO oportunidades (titulo, descripcion, requisitos, institucion_id, carrera_id, modalidad, ubicacion, fecha_publicacion, fecha_cierre, creado_por)
@@ -180,12 +180,12 @@ class Oportunidades {
             ]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo publicar la oportunidad");
+                $this->response->error("No se pudo publicar la oportunidad", -1, 500);
             }
 
             $this->response->success("Oportunidad publicada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -197,11 +197,11 @@ class Oportunidades {
         $visto              = (int)($arrayData["visto"] ?? 0) === 1 ? 1 : 0;
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         if (!in_array($estado_oportunidad, self::ESTADOS_OPORTUNIDAD, true)) {
-            $this->response->error("El estado no es valido");
+            $this->response->error("El estado no es valido", -1, 400);
         }
 
         $data = $this->validate($arrayData);
@@ -217,12 +217,12 @@ class Oportunidades {
             ]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Oportunidad no encontrada o sin cambios");
+                $this->response->error("Oportunidad no encontrada o sin cambios", -1, 404);
             }
 
             $this->response->success("Oportunidad actualizada correctamente");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -230,7 +230,7 @@ class Oportunidades {
     # Eliminar oportunidad (borrado lógico)
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -239,12 +239,12 @@ class Oportunidades {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID o ya esta inactivo.");
+                $this->response->error("No se encontro el ID o ya esta inactivo.", -1, 404);
             }
 
             $this->response->success("Oportunidad cancelada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -265,38 +265,38 @@ class Oportunidades {
         }
 
         if ($titulo === '' || mb_strlen($titulo) > 150) {
-            $this->response->error("El título es obligatorio y no debe superar 150 caracteres");
+            $this->response->error("El título es obligatorio y no debe superar 150 caracteres", -1, 400);
         }
 
         if ($descripcion === '') {
-            $this->response->error("La descripción es obligatoria");
+            $this->response->error("La descripción es obligatoria", -1, 400);
         }
 
         if (!in_array($modalidad, self::MODALIDADES, true)) {
-            $this->response->error("La modalidad no es valida");
+            $this->response->error("La modalidad no es valida", -1, 400);
         }
 
         if (mb_strlen($ubicacion) > 150) {
-            $this->response->error("La ubicación no debe superar 150 caracteres");
+            $this->response->error("La ubicación no debe superar 150 caracteres", -1, 400);
         }
 
         if (!$this->isDate($fecha_publicacion)) {
-            $this->response->error("La fecha de publicación no es valida (formato YYYY-MM-DD)");
+            $this->response->error("La fecha de publicación no es valida (formato YYYY-MM-DD)", -1, 400);
         }
 
         if (!$this->isDate($fecha_cierre)) {
-            $this->response->error("La fecha de cierre no es valida (formato YYYY-MM-DD)");
+            $this->response->error("La fecha de cierre no es valida (formato YYYY-MM-DD)", -1, 400);
         }
 
         if ($fecha_cierre < $fecha_publicacion) {
-            $this->response->error("La fecha de cierre no puede ser anterior a la fecha de publicación");
+            $this->response->error("La fecha de cierre no puede ser anterior a la fecha de publicación", -1, 400);
         }
 
         if ($institucion_id > 0) {
             $stmt = $this->connection->prepare("SELECT id FROM instituciones WHERE id = ? AND estado = 1");
             $stmt->execute([$institucion_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("La institución no existe");
+                $this->response->error("La institución no existe", -1, 404);
             }
         }
 
@@ -304,7 +304,7 @@ class Oportunidades {
             $stmt = $this->connection->prepare("SELECT id FROM carreras WHERE id = ? AND estado = 1");
             $stmt->execute([$carrera_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("La carrera no existe");
+                $this->response->error("La carrera no existe", -1, 404);
             }
         }
 

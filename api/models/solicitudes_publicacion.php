@@ -27,7 +27,7 @@ class SolicitudesPublicacion {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -35,7 +35,7 @@ class SolicitudesPublicacion {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT s.id, s.usuario_id, CONCAT(u.nombre, ' ', u.apellido) AS usuario, u.email,
@@ -51,12 +51,12 @@ class SolicitudesPublicacion {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Solicitud no encontrada");
+                $this->response->error("Solicitud no encontrada", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -64,7 +64,7 @@ class SolicitudesPublicacion {
     # Filtrar por estado (cola de revisión del admin)
     public function findByEstado(string $estado_solicitud){
         if (!in_array($estado_solicitud, self::ESTADOS_SOLICITUD, true)) {
-            $this->response->error("El estado no es valido");
+            $this->response->error("El estado no es valido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT s.id, s.usuario_id, CONCAT(u.nombre, ' ', u.apellido) AS usuario, u.email,
@@ -80,7 +80,7 @@ class SolicitudesPublicacion {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -88,7 +88,7 @@ class SolicitudesPublicacion {
     # Filtrar por usuario solicitante
     public function findByUsuario(int $usuario_id){
         if ($usuario_id <= 0) {
-            $this->response->error("El ID de usuario es invalido");
+            $this->response->error("El ID de usuario es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT s.id, s.usuario_id, CONCAT(u.nombre, ' ', u.apellido) AS usuario, u.email,
@@ -104,7 +104,7 @@ class SolicitudesPublicacion {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -115,7 +115,7 @@ class SolicitudesPublicacion {
         $data = $this->validate($arrayData);
 
         if ($usuario_id <= 0) {
-            $this->response->error("El usuario es obligatorio");
+            $this->response->error("El usuario es obligatorio", -1, 400);
         }
 
         try {
@@ -124,17 +124,17 @@ class SolicitudesPublicacion {
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$usuario) {
-                $this->response->error("El usuario no existe o no está activo");
+                $this->response->error("El usuario no existe o no está activo", -1, 404);
             }
 
             if ((int)$usuario['autorizado_publicar'] === 1) {
-                $this->response->error("El usuario ya está autorizado para publicar");
+                $this->response->error("El usuario ya está autorizado para publicar", -1, 409);
             }
 
             $stmt = $this->connection->prepare("SELECT id FROM solicitudes_publicacion WHERE usuario_id = ? AND estado = 1 AND estado_solicitud = 'pendiente'");
             $stmt->execute([$usuario_id]);
             if ($stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("El usuario ya tiene una solicitud pendiente");
+                $this->response->error("El usuario ya tiene una solicitud pendiente", -1, 409);
             }
 
             $query = "INSERT INTO solicitudes_publicacion (usuario_id, nombre_organizacion_proyecto, descripcion_actividades, documento_respaldo_url)
@@ -143,12 +143,12 @@ class SolicitudesPublicacion {
             $stmt->execute([$usuario_id, $data['nombre_organizacion_proyecto'], $data['descripcion_actividades'], $data['documento_respaldo_url']]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo registrar la solicitud");
+                $this->response->error("No se pudo registrar la solicitud", -1, 500);
             }
 
             $this->response->success("Solicitud registrada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -158,7 +158,7 @@ class SolicitudesPublicacion {
         $id = (int)($arrayData["id"] ?? 0);
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         $data = $this->validate($arrayData);
@@ -171,12 +171,12 @@ class SolicitudesPublicacion {
             $stmt->execute([$data['nombre_organizacion_proyecto'], $data['descripcion_actividades'], $data['documento_respaldo_url'], $id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Solicitud no encontrada, ya revisada o sin cambios");
+                $this->response->error("Solicitud no encontrada, ya revisada o sin cambios", -1, 404);
             }
 
             $this->response->success("Solicitud actualizada correctamente");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -189,19 +189,19 @@ class SolicitudesPublicacion {
         $revisado_por     = (int)($arrayData["revisado_por"] ?? 0);
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         if (!in_array($estado_solicitud, ['aprobada', 'rechazada'], true)) {
-            $this->response->error("El estado debe ser 'aprobada' o 'rechazada'");
+            $this->response->error("El estado debe ser 'aprobada' o 'rechazada'", -1, 400);
         }
 
         if ($estado_solicitud === 'rechazada' && $comentario_admin === '') {
-            $this->response->error("Debe indicar el motivo del rechazo");
+            $this->response->error("Debe indicar el motivo del rechazo", -1, 400);
         }
 
         if ($revisado_por <= 0) {
-            $this->response->error("El revisor es obligatorio");
+            $this->response->error("El revisor es obligatorio", -1, 400);
         }
 
         try {
@@ -211,14 +211,14 @@ class SolicitudesPublicacion {
                                                 WHERE u.id = ? AND r.nombre = 'administrador' AND u.estado = 1 AND u.estado_cuenta = 'activo'");
             $stmt->execute([$revisado_por]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->response->error("Solo un administrador puede revisar solicitudes");
+                $this->response->error("Solo un administrador puede revisar solicitudes", -1, 403);
             }
 
             $stmt = $this->connection->prepare("SELECT usuario_id FROM solicitudes_publicacion WHERE id = ? AND estado = 1 AND estado_solicitud = 'pendiente'");
             $stmt->execute([$id]);
             $solicitud = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$solicitud) {
-                $this->response->error("Solicitud no encontrada o ya revisada");
+                $this->response->error("Solicitud no encontrada o ya revisada", -1, 404);
             }
 
             $this->connection->beginTransaction();
@@ -241,7 +241,7 @@ class SolicitudesPublicacion {
             if ($this->connection->inTransaction()) {
                 $this->connection->rollBack();
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -249,7 +249,7 @@ class SolicitudesPublicacion {
     # Eliminar solicitud (borrado lógico)
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -258,12 +258,12 @@ class SolicitudesPublicacion {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID o ya esta inactivo.");
+                $this->response->error("No se encontro el ID o ya esta inactivo.", -1, 404);
             }
 
             $this->response->success("Solicitud eliminada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -274,20 +274,20 @@ class SolicitudesPublicacion {
         $documento_respaldo_url       = trim($arrayData["documento_respaldo_url"] ?? '');
 
         if ($nombre_organizacion_proyecto === '' || mb_strlen($nombre_organizacion_proyecto) > 150) {
-            $this->response->error("El nombre de la organización o proyecto es obligatorio y no debe superar 150 caracteres");
+            $this->response->error("El nombre de la organización o proyecto es obligatorio y no debe superar 150 caracteres", -1, 400);
         }
 
         if ($descripcion_actividades === '') {
-            $this->response->error("La descripción de actividades es obligatoria");
+            $this->response->error("La descripción de actividades es obligatoria", -1, 400);
         }
 
         if (mb_strlen($documento_respaldo_url) > 255) {
-            $this->response->error("La URL del documento no debe superar 255 caracteres");
+            $this->response->error("La URL del documento no debe superar 255 caracteres", -1, 400);
         }
 
         # Solo http/https: evita guardar enlaces "javascript:" que luego se pintan en el front
         if ($documento_respaldo_url !== '' && (!filter_var($documento_respaldo_url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $documento_respaldo_url))) {
-            $this->response->error("La URL del documento no es valida");
+            $this->response->error("La URL del documento no es valida", -1, 400);
         }
 
         return [

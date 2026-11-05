@@ -21,7 +21,7 @@ class Instituciones {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -29,7 +29,7 @@ class Instituciones {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $query = "SELECT id, nombre, siglas, tipo, contacto_email, sitio_web, creado_en
@@ -39,12 +39,12 @@ class Instituciones {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Institución no encontrada");
+                $this->response->error("Institución no encontrada", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -52,7 +52,7 @@ class Instituciones {
     # Filtrar por tipo
     public function findByTipo(string $tipo){
         if (!in_array($tipo, self::TIPOS, true)) {
-            $this->response->error("El tipo no es valido");
+            $this->response->error("El tipo no es valido", -1, 400);
         }
         try {
             $query = "SELECT id, nombre, siglas, tipo, contacto_email, sitio_web, creado_en
@@ -62,7 +62,7 @@ class Instituciones {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -76,7 +76,7 @@ class Instituciones {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -91,15 +91,15 @@ class Instituciones {
             $stmt->execute([$data['nombre'], $data['siglas'], $data['tipo'], $data['contacto_email'], $data['sitio_web']]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo agregar la institución");
+                $this->response->error("No se pudo agregar la institución", -1, 500);
             }
 
             $this->response->success("Institución registrada con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe una institución con ese nombre");
+                $this->response->error("Ya existe una institución con ese nombre", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -109,7 +109,7 @@ class Instituciones {
         $id = (int)($arrayData["id"] ?? 0);
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         $data = $this->validate($arrayData);
@@ -120,15 +120,15 @@ class Instituciones {
             $stmt->execute([$data['nombre'], $data['siglas'], $data['tipo'], $data['contacto_email'], $data['sitio_web'], $id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Institución no encontrada o sin cambios");
+                $this->response->error("Institución no encontrada o sin cambios", -1, 404);
             }
 
             $this->response->success("Institución actualizada correctamente");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe una institución con ese nombre");
+                $this->response->error("Ya existe una institución con ese nombre", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -136,7 +136,7 @@ class Instituciones {
     # Eliminar institución (las carreras se eliminan por CASCADE de la FK)
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -145,12 +145,12 @@ class Instituciones {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID.");
+                $this->response->error("No se encontro el ID.", -1, 404);
             }
 
             $this->response->success("Institución eliminada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -163,24 +163,24 @@ class Instituciones {
         $sitio_web      = trim($arrayData["sitio_web"] ?? '');
 
         if ($nombre === '' || mb_strlen($nombre) > 150) {
-            $this->response->error("El nombre es obligatorio y no debe superar 150 caracteres");
+            $this->response->error("El nombre es obligatorio y no debe superar 150 caracteres", -1, 400);
         }
 
         if (mb_strlen($siglas) > 20) {
-            $this->response->error("Las siglas no deben superar 20 caracteres");
+            $this->response->error("Las siglas no deben superar 20 caracteres", -1, 400);
         }
 
         if (!in_array($tipo, self::TIPOS, true)) {
-            $this->response->error("El tipo no es valido");
+            $this->response->error("El tipo no es valido", -1, 400);
         }
 
         if ($contacto_email !== '' && (!filter_var($contacto_email, FILTER_VALIDATE_EMAIL) || mb_strlen($contacto_email) > 150)) {
-            $this->response->error("El email de contacto no es correcto");
+            $this->response->error("El email de contacto no es correcto", -1, 400);
         }
 
         # Solo http/https: evita guardar enlaces "javascript:" que luego se pintan en el front
         if ($sitio_web !== '' && (!filter_var($sitio_web, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $sitio_web) || mb_strlen($sitio_web) > 255)) {
-            $this->response->error("El sitio web no es una URL valida");
+            $this->response->error("El sitio web no es una URL valida", -1, 400);
         }
 
         return [

@@ -19,13 +19,16 @@ export async function apiFetch(ruta, { method = "GET", body, signal } = {}) {
     headers["X-CSRF-Token"] = csrfToken;
   }
 
-  // El backend solo acepta JSON (Content-Type: application/json) en POST/PUT/QUERY.
-  // Los parámetros de GET y DELETE van en la query string de la ruta.
+  // Para FormData (subida de archivos): el navegador asigna automáticamente
+  // multipart/form-data con el boundary correcto; NO se envía como JSON.
   let cuerpo;
   if (body !== undefined && body !== null) {
-    const datos = body instanceof FormData ? Object.fromEntries(body) : body;
-    cuerpo = JSON.stringify(datos);
-    headers["Content-Type"] = "application/json";
+    if (body instanceof FormData) {
+      cuerpo = body;
+    } else {
+      cuerpo = JSON.stringify(body);
+      headers["Content-Type"] = "application/json";
+    }
   }
 
   const res = await fetch(`${BASE_API}/${ruta}`, {

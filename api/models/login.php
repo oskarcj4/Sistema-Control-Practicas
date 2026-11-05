@@ -17,11 +17,11 @@ class Login {
         $contrasena    = $arrayData["contrasena"] ?? '';
 
         if (mb_strlen($identificador) < 3 || mb_strlen($identificador) > 150) {
-            $this->response->error("El identificador de usuario no es valido");
+            $this->response->error("El identificador de usuario no es valido", -1, 400);
         }
 
         if (strlen($contrasena) < 8) {
-            $this->response->error("La contraseña debe tener al menos 8 caracteres");
+            $this->response->error("La contraseña debe tener al menos 8 caracteres", -1, 400);
         }
 
         # Email o username; la columna sale de una lista fija, el valor va como parámetro
@@ -40,7 +40,7 @@ class Login {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result || !password_verify($contrasena, $result["password_hash"])) {
-                $this->response->error("La contraseña y el usuario no coinciden");
+                $this->response->error("La contraseña y el usuario no coinciden", -1, 401);
             }
 
             # GROUP_CONCAT devuelve "1,3" o NULL si no tiene roles asignados
@@ -83,7 +83,7 @@ class Login {
                 'csrfToken' => csrfToken()
             ], "Logueado exitosamente");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }

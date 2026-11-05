@@ -3,6 +3,7 @@ import { AuthContext } from "../context/AuthContext";
 import {
   COLOR_ROL,
   ROL_ADMIN,
+  ROL_ESTUDIANTE,
   ROL_RECLUTADOR,
   TEXTO_ROL,
   obtenerRoles,
@@ -25,33 +26,29 @@ export default function Navbar({
 }) {
   const { usuario, logout } = useContext(AuthContext); // Obtenemos el usuario del AuthContext
 
-  // Elige el rol "mass importante" para el badge: Admin - Reclutador - Estudiambre
+  // Elige el rol "más importante" para el badge: Admin > Reclutador > Estudiante
   const roles = obtenerRoles(usuario);
-//  console.log(usuario);
+  const esAdmin = Boolean(usuario?.isAdmin || roles.includes(ROL_ADMIN));
+  const esReclutador = roles.includes(ROL_RECLUTADOR);
+  const esEstudiante = roles.includes(ROL_ESTUDIANTE);
 
   const pestanasVisibles = pestanas.filter((p) => {
     if (p.id === "admin") {
-      return usuario.isAdmin
+      return esAdmin;
     }
-    if (p.id === "nueva-oferta"){
-      if (usuario.rol === ROL_ADMIN){
-        return true;
-      }
-      else if (usuario.rol === ROL_RECLUTADOR){
-        return true;
-      }
-      else{
-        return false;
-      }
+    if (p.id === "nueva-oferta") {
+      return esAdmin || esReclutador;
     }
-    return true;
-
-  })
+    if (p.id === "mis-postulaciones") {
+      return esEstudiante;
+    }
+    return true; // "feed", "perfil"
+  });
 
   let rolBadge = 1;
-  if (usuario?.isAdmin || roles.includes(ROL_ADMIN)) {
+  if (esAdmin) {
     rolBadge = ROL_ADMIN;
-  } else if (roles.includes(ROL_RECLUTADOR)) {
+  } else if (esReclutador) {
     rolBadge = ROL_RECLUTADOR;
   }
 

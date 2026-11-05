@@ -11,7 +11,8 @@ Require all denied
     Require all granted
 </FilesMatch>
 
-# Apagar PHP en esta carpeta aunque alguien logre colar un .php
+# Apagar PHP en esta carpeta aunque alguien logre colar un .php NO SE ejecuta
+# IMPORTANTE NO BORRAR LEER Y APRENDER
 <IfModule mod_php.c>
     php_flag engine off
 </IfModule>

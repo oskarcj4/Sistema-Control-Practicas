@@ -18,7 +18,7 @@ class Roles {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -26,7 +26,7 @@ class Roles {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $query = "SELECT id, nombre, descripcion, creado_en FROM roles WHERE id = ?";
@@ -35,12 +35,12 @@ class Roles {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Rol no encontrado");
+                $this->response->error("Rol no encontrado", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -51,11 +51,11 @@ class Roles {
         $descripcion = trim($arrayData["descripcion"] ?? '');
 
         if ($nombre === '' || mb_strlen($nombre) > 50) {
-            $this->response->error("El nombre es obligatorio y no debe superar 50 caracteres");
+            $this->response->error("El nombre es obligatorio y no debe superar 50 caracteres", -1, 400);
         }
 
         if (mb_strlen($descripcion) > 255) {
-            $this->response->error("La descripción no debe superar 255 caracteres");
+            $this->response->error("La descripción no debe superar 255 caracteres", -1, 400);
         }
 
         try {
@@ -64,15 +64,15 @@ class Roles {
             $stmt->execute([$nombre, $descripcion !== '' ? $descripcion : null]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo agregar el rol");
+                $this->response->error("No se pudo agregar el rol", -1, 500);
             }
 
             $this->response->success("Rol registrado con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe un rol con ese nombre");
+                $this->response->error("Ya existe un rol con ese nombre", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -84,15 +84,15 @@ class Roles {
         $descripcion = trim($arrayData["descripcion"] ?? '');
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         if ($nombre === '' || mb_strlen($nombre) > 50) {
-            $this->response->error("El nombre es obligatorio y no debe superar 50 caracteres");
+            $this->response->error("El nombre es obligatorio y no debe superar 50 caracteres", -1, 400);
         }
 
         if (mb_strlen($descripcion) > 255) {
-            $this->response->error("La descripción no debe superar 255 caracteres");
+            $this->response->error("La descripción no debe superar 255 caracteres", -1, 400);
         }
 
         try {
@@ -101,15 +101,15 @@ class Roles {
             $stmt->execute([$nombre, $descripcion !== '' ? $descripcion : null, $id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Rol no encontrado o sin cambios");
+                $this->response->error("Rol no encontrado o sin cambios", -1, 404);
             }
 
             $this->response->success("Rol actualizado correctamente");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("Ya existe un rol con ese nombre");
+                $this->response->error("Ya existe un rol con ese nombre", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -117,7 +117,7 @@ class Roles {
     # Eliminar rol (falla si hay usuarios activos con este rol)
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -128,7 +128,7 @@ class Roles {
             $stmt->execute([$id]);
 
             if ((int)$stmt->fetchColumn() > 0) {
-                $this->response->error("No se puede eliminar: hay usuarios con este rol");
+                $this->response->error("No se puede eliminar: hay usuarios con este rol", -1, 409);
             }
 
             $query = "DELETE FROM roles WHERE id = ?";
@@ -136,12 +136,12 @@ class Roles {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID.");
+                $this->response->error("No se encontro el ID.", -1, 404);
             }
 
             $this->response->success("Rol eliminado con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }

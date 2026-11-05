@@ -14,7 +14,7 @@ class Carreras {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -29,7 +29,7 @@ class Carreras {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -37,7 +37,7 @@ class Carreras {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT c.id, c.institucion_id, i.nombre AS institucion, c.nombre, c.codigo, c.creado_en
@@ -48,12 +48,12 @@ class Carreras {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Carrera no encontrada");
+                $this->response->error("Carrera no encontrada", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -61,7 +61,7 @@ class Carreras {
     # Filtrar por institución
     public function findByInstitucion(int $institucion_id){
         if ($institucion_id <= 0) {
-            $this->response->error("El ID de institución es invalido");
+            $this->response->error("El ID de institución es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT c.id, c.nombre
@@ -72,7 +72,7 @@ class Carreras {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -87,15 +87,15 @@ class Carreras {
             $stmt->execute([$data['institucion_id'], $data['nombre'], $data['codigo']]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo agregar la carrera");
+                $this->response->error("No se pudo agregar la carrera", -1, 500);
             }
 
             $this->response->success("Carrera registrada con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("La institución ya tiene una carrera con ese nombre");
+                $this->response->error("La institución ya tiene una carrera con ese nombre", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -105,7 +105,7 @@ class Carreras {
         $id = (int)($arrayData["id"] ?? 0);
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         $data = $this->validate($arrayData);
@@ -116,15 +116,15 @@ class Carreras {
             $stmt->execute([$data['institucion_id'], $data['nombre'], $data['codigo'], $id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Carrera no encontrada o sin cambios");
+                $this->response->error("Carrera no encontrada o sin cambios", -1, 404);
             }
 
             $this->response->success("Carrera actualizada correctamente");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
-                $this->response->error("La institución ya tiene una carrera con ese nombre");
+                $this->response->error("La institución ya tiene una carrera con ese nombre", -1, 409);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -132,7 +132,7 @@ class Carreras {
     # Eliminar carrera
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -141,12 +141,12 @@ class Carreras {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID.");
+                $this->response->error("No se encontro el ID.", -1, 404);
             }
 
             $this->response->success("Carrera eliminada con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -157,21 +157,21 @@ class Carreras {
         $codigo         = trim($arrayData["codigo"] ?? '');
 
         if ($institucion_id <= 0) {
-            $this->response->error("La institución es obligatoria");
+            $this->response->error("La institución es obligatoria", -1, 400);
         }
 
         if ($nombre === '' || mb_strlen($nombre) > 150) {
-            $this->response->error("El nombre es obligatorio y no debe superar 150 caracteres");
+            $this->response->error("El nombre es obligatorio y no debe superar 150 caracteres", -1, 400);
         }
 
         if (mb_strlen($codigo) > 30) {
-            $this->response->error("El código no debe superar 30 caracteres");
+            $this->response->error("El código no debe superar 30 caracteres", -1, 400);
         }
 
         $stmt = $this->connection->prepare("SELECT id FROM instituciones WHERE id = ?");
         $stmt->execute([$institucion_id]);
         if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-            $this->response->error("La institución no existe");
+            $this->response->error("La institución no existe", -1, 404);
         }
 
         return [

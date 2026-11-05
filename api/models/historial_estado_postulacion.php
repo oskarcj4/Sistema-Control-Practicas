@@ -22,7 +22,7 @@ class HistorialEstadoPostulacion {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -30,7 +30,7 @@ class HistorialEstadoPostulacion {
     # Filtrar por id
     public function findById(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT h.id, h.postulacion_id, h.estado_anterior, h.estado_nuevo, h.comentario,
@@ -42,12 +42,12 @@ class HistorialEstadoPostulacion {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {
-                $this->response->error("Registro no encontrado");
+                $this->response->error("Registro no encontrado", -1, 404);
             }
 
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -55,7 +55,7 @@ class HistorialEstadoPostulacion {
     # Línea de tiempo de una postulación
     public function findByPostulacion(int $postulacion_id){
         if ($postulacion_id <= 0) {
-            $this->response->error("El ID de la postulación es invalido");
+            $this->response->error("El ID de la postulación es invalido", -1, 400);
         }
         try {
             $stmt = $this->connection->prepare("SELECT h.id, h.postulacion_id, h.estado_anterior, h.estado_nuevo, h.comentario,
@@ -67,7 +67,7 @@ class HistorialEstadoPostulacion {
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -81,15 +81,15 @@ class HistorialEstadoPostulacion {
         $actualizado_por = (int)($arrayData["actualizado_por"] ?? 0);
 
         if ($postulacion_id <= 0) {
-            $this->response->error("La postulación es obligatoria");
+            $this->response->error("La postulación es obligatoria", -1, 400);
         }
 
         if (!in_array($estado_anterior, self::ESTADOS_POSTULACION, true) || !in_array($estado_nuevo, self::ESTADOS_POSTULACION, true)) {
-            $this->response->error("Los estados no son validos");
+            $this->response->error("Los estados no son validos", -1, 400);
         }
 
         if ($actualizado_por <= 0) {
-            $this->response->error("El usuario que actualiza es obligatorio");
+            $this->response->error("El usuario que actualiza es obligatorio", -1, 400);
         }
 
         try {
@@ -99,15 +99,15 @@ class HistorialEstadoPostulacion {
             $stmt->execute([$postulacion_id, $estado_anterior, $estado_nuevo, $comentario !== '' ? $comentario : null, $actualizado_por]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo agregar el registro");
+                $this->response->error("No se pudo agregar el registro", -1, 500);
             }
 
             $this->response->success("Registro agregado con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1452) {
-                $this->response->error("La postulación o el usuario no existen");
+                $this->response->error("La postulación o el usuario no existen", -1, 404);
             }
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -118,7 +118,7 @@ class HistorialEstadoPostulacion {
         $comentario = trim($arrayData["comentario"] ?? '');
 
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -127,12 +127,12 @@ class HistorialEstadoPostulacion {
             $stmt->execute([$comentario !== '' ? $comentario : null, $id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("Registro no encontrado o sin cambios");
+                $this->response->error("Registro no encontrado o sin cambios", -1, 404);
             }
 
             $this->response->success("Registro actualizado correctamente");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
@@ -140,7 +140,7 @@ class HistorialEstadoPostulacion {
     # Eliminar registro (borrado lógico)
     public function delete(int $id){
         if ($id <= 0) {
-            $this->response->error("El ID es invalido");
+            $this->response->error("El ID es invalido", -1, 400);
         }
 
         try {
@@ -149,12 +149,12 @@ class HistorialEstadoPostulacion {
             $stmt->execute([$id]);
 
             if ($stmt->rowCount() === 0) {
-                $this->response->error("No se encontro el ID o ya esta inactivo.");
+                $this->response->error("No se encontro el ID o ya esta inactivo.", -1, 404);
             }
 
             $this->response->success("Registro eliminado con éxito");
         } catch (PDOException $e) {
-            Response::error("Error");
+            Response::error("Error", -1, 500);
             //Response::debugError($e);
         }
     }
