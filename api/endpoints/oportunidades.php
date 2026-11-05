@@ -16,7 +16,7 @@ $method     = $_SERVER["REQUEST_METHOD"];
 
 # GET: cualquier usuario logueado. POST/PUT/DELETE: solo administrador (2) o reclutador (3).
 # requireAuth corta con error si no hay sesión o no tiene el rol, y en métodos de escritura valida el CSRF.
-$auth_data = requireAuth($method === 'GET' ? [] : [2, 3]);
+$auth_data = requireAuth($method === 'GET' ? [] : [1, 2, 3]);
 
 # POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
 $data = readJsonInput($method);

@@ -12,12 +12,11 @@ import NotificacionesDropdown from "./NotificacionesDropdown";
 // T1 - Barra de navegación global.
 //
 // Props:
-//   pestanas        -> arreglo { id, texto } con las pestañas a mostrar.
-//                      En T10 tú decides qué pestañas recibe según el rol.
-//   pestanaActiva   -> id de la pestaña seleccionada
-//   onCambiarPestana-> función(id) que cambia de pantalla
-//   notificaciones  -> (opcional) arreglo para la campana (T17)
-//   onClickNotificacion -> (opcional) función(notificacion) (T18)
+//   pestanas: arreglo { id, texto } con las pestañas a mostrar, de debe decidir qué pestañas recibe según el rol. T10
+//   pestanaActiva : id de la pestaña seleccionada
+//   onCambiarPestana : función(id) que cambia de pantalla
+//   notificaciones : (opcional) arreglo para la campana (T17)
+//   onClickNotificacion : (opcional) función(notificacion) (T18)
 export default function Navbar({
   pestanas,
   pestanaActiva,
@@ -25,10 +24,23 @@ export default function Navbar({
   notificaciones,
   onClickNotificacion,
 }) {
-  const { usuario, logout } = useContext(AuthContext);
+  const { usuario, logout } = useContext(AuthContext); // Obtenemos el usuario del AuthContext
 
-  // Elegimos el rol "más importante" para el badge: Admin > Reclutador > Estudiante.
+  // Elige el rol "mass importante" para el badge: Admin - Reclutador - Estudiambre
   const roles = obtenerRoles(usuario);
+//  console.log(usuario);
+
+  const pestanasVisibles = pestanas.filter((p) => {
+    if (p.id === "admin") {
+      return usuario.isAdmin
+    }
+    if (p.id === "nueva-oferta"){
+      return (usuario.rol === ROL_RECLUTADOR|| usuario.rol === ROL_ADMIN)
+    }
+    return true;
+
+  })
+
   let rolBadge = 1;
   if (usuario?.isAdmin || roles.includes(ROL_ADMIN)) {
     rolBadge = ROL_ADMIN;
@@ -74,7 +86,8 @@ export default function Navbar({
 
       {/* Fila inferior: pestañas. overflow-x-auto permite deslizar en celular. */}
       <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
-        {pestanas.map((pestana) => {
+        {/* Cambiar a pestanasVisibles para produccion */}
+        {pestanasVisibles.map((pestana) => {
           const activa = pestana.id === pestanaActiva;
           return (
             <button

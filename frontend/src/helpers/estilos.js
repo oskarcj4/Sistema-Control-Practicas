@@ -47,7 +47,6 @@ export const COLOR_ROL = {
 };
 
 // El backend manda los roles como texto: "1,3".
-// Esta función lo convierte en un arreglo de números: [1, 3].
 export function obtenerRoles(usuario) {
   if (!usuario || !usuario.roles) {
     return [];

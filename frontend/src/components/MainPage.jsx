@@ -4,13 +4,13 @@ import PerfilForm from "./PerfilForm";
 import EstadoVacio from "./ui/EstadoVacio";
 
 // Lista de pestañas del Navbar.
-// 👤 T10 (tuya): filtra este arreglo según el rol del usuario
+// T10 (tuya): filtra este arreglo según el rol del usuario
 //    (ej: "nueva-oferta" solo Reclutador/Admin, "admin" solo Admin).
 const PESTANAS = [
-  { id: "feed", texto: "Feed" },
-  { id: "mis-postulaciones", texto: "Mis Postulaciones" },
-  { id: "nueva-oferta", texto: "Nueva Oferta" },
-  { id: "admin", texto: "Panel de Administración" },
+  { id: "feed", texto: "Feed" }, // todos
+  { id: "mis-postulaciones", texto: "Mis Postulaciones" }, // todos
+  { id: "nueva-oferta", texto: "Nueva Oferta" }, // solo reclutadores & admins
+  { id: "admin", texto: "Panel de Administración" }, // solo admin
   { id: "perfil", texto: "Mi Perfil" }, // visible para todos los roles
 ];
 
@@ -24,14 +24,14 @@ export default function MainPage() {
         pestanas={PESTANAS}
         pestanaActiva={pestanaActiva}
         onCambiarPestana={setPestanaActiva}
-        notificaciones={[]} // 👤 T17: aquí pasarás las notificaciones que cargues
+        notificaciones={[]} // T17: aquí pasarás las notificaciones que cargues
       />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Se muestra solo el bloque de la pestaña activa */}
 
         {pestanaActiva === "feed" && (
-          // 👤 T3 / T4 / T6: aquí va el useEffect, el buscador, el .map() con <OportunidadCard />
+          // T3 / T4 / T6: aquí va el useEffect, el buscador, el .map() con <OportunidadCard />
           //   y el <DetalleModal />.
           <EstadoVacio
             icono="🔎"
@@ -41,7 +41,7 @@ export default function MainPage() {
         )}
 
         {pestanaActiva === "mis-postulaciones" && (
-          // 👤 T9: aquí va la carga con useEffect y el .map() con <PostulacionCard />
+          // T9: aquí va la carga con useEffect y el .map() con <PostulacionCard />
           <EstadoVacio
             icono="📄"
             titulo="Mis postulaciones"
@@ -50,7 +50,7 @@ export default function MainPage() {
         )}
 
         {pestanaActiva === "nueva-oferta" && (
-          // 👤 T11: formulario "Publicar Oportunidad"
+          // T11: formulario "Publicar Oportunidad"
           <EstadoVacio
             icono="📝"
             titulo="Publicar oportunidad"
@@ -59,7 +59,7 @@ export default function MainPage() {
         )}
 
         {pestanaActiva === "admin" && (
-          // 👤 T14 / T15 / T16: <TablaUsuarios />, <AsignarRolModal /> y bandeja de solicitudes
+          // T14 / T15 / T16: <TablaUsuarios />, <AsignarRolModal /> y bandeja de solicitudes
           <EstadoVacio
             icono="🛡️"
             titulo="Panel de administración"
