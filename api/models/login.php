@@ -4,7 +4,7 @@ class Login {
     private Connection $connection;
     private Response $response;
 
-    private const ROL_ADMIN = 2; # ver seed de roles en init.sql
+    private const ROL_ADMIN = 2; # ver database/seed.sql
 
     public function __construct(Connection $connection, Response $response){
         $this->connection = $connection;
@@ -28,13 +28,13 @@ class Login {
         $columna = filter_var($identificador, FILTER_VALIDATE_EMAIL) ? 'u.email' : 'u.username';
 
         try {
-            $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash, u.rol_id,
-                             GROUP_CONCAT(ar.id_rol) AS roles_extra
+            # Los roles viven solo en asignaciones_roles (usuarios no tiene rol_id)
+            $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash,
+                             (SELECT GROUP_CONCAT(ar.id_rol ORDER BY ar.id_rol)
+                                FROM asignaciones_roles ar
+                               WHERE ar.id_usuario = u.id AND ar.estado = 1) AS roles
                       FROM usuarios u
-                      LEFT JOIN asignaciones_roles ar ON ar.id_usuario = u.id
-                      WHERE $columna = ? AND u.estado = 'activo'
-                      GROUP BY u.id"
-                      ;
+                      WHERE $columna = ? AND u.estado = 1 AND u.estado_cuenta = 'activo'";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$identificador]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -43,18 +43,10 @@ class Login {
                 $this->response->error("La contraseña y el usuario no coinciden");
             }
 
-            # Rol principal (usuarios.rol_id) + roles extra (asignaciones_roles)
-            $roles = [(int)$result['rol_id']];
-
-            # GROUP_CONCAT devuelve "1,3" o NULL si no tiene roles extra
-            if ($result['roles_extra'] !== null) {
-                foreach (explode(',', $result['roles_extra']) as $rolExtra) {
-                    $rolExtra = (int)$rolExtra;
-                    if (!in_array($rolExtra, $roles, true)) {
-                        $roles[] = $rolExtra;
-                    }
-                }
-            }
+            # GROUP_CONCAT devuelve "1,3" o NULL si no tiene roles asignados
+            $roles = $result['roles'] !== null
+                ? array_map('intval', explode(',', $result['roles']))
+                : [];
 
             $payload = [
                 'id'       => (int)$result['id'],

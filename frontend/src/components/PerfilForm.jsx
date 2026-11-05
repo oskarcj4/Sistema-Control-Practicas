@@ -30,7 +30,6 @@ export default function PerfilForm() {
   const { instituciones, carreras, cargandoCarreras, setInstitucionId } = useContext(RegisterContext);
 
   const [form, setForm] = useState(formVacio);
-  const [rolId, setRolId] = useState("");
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(null);
   const [errores, setErrores] = useState({});
@@ -62,7 +61,6 @@ export default function PerfilForm() {
           telefono: perfil.telefono || "",
           biografia: perfil.biografia || "",
         });
-        setRolId(perfil.rol_id);
 
         // Avisamos al contexto qué institución tiene, para que cargue sus carreras.
         setInstitucionId(perfil.institucion_id ? String(perfil.institucion_id) : "");
@@ -148,12 +146,11 @@ export default function PerfilForm() {
       return;
     }
 
-    // ⚠️ IMPORTANTE: el PUT de usuarios.php necesita "id" y "rol_id" además de los campos.
+    // ⚠️ IMPORTANTE: el PUT de usuarios.php necesita "id" además de los campos.
     // - id: le dice al backend QUÉ usuario actualizar (sale del AuthContext).
-    // - rol_id: el backend lo valida aunque no lo cambiemos (sale del GET inicial).
+    // Los roles no se cambian aquí: se manejan en asignaciones_roles.php.
     const datos = {
       id: usuario.id,
-      rol_id: rolId,
       username: form.username.trim(),
       nombre: form.nombre.trim(),
       apellido: form.apellido.trim(),

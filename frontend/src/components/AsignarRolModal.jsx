@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { COLOR_ROL, TEXTO_ROL } from "../helpers/estilos";
 
-// T14 - Modal para asignar o quitar roles secundarios a un usuario.
+// T14 - Modal para asignar o quitar roles a un usuario.
 // Solo dibuja. Las llamadas POST / DELETE a asignaciones_roles.php las haces tú.
 //
 // Props:
@@ -62,14 +62,10 @@ export default function AsignarRolModal({
         </button>
 
         <h2 className="text-xl font-bold text-slate-800">Roles de @{usuario.username}</h2>
-        <p className="text-sm text-slate-500">
-          Rol principal: <span className="capitalize">{usuario.rol}</span>
-        </p>
-
-        {/* Roles secundarios actuales */}
-        <h3 className="mt-5 text-sm font-semibold text-slate-700">Roles secundarios</h3>
+        {/* Roles actuales (el último no se puede quitar) */}
+        <h3 className="mt-5 text-sm font-semibold text-slate-700">Roles asignados</h3>
         {rolesAsignados.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-400">No tiene roles secundarios.</p>
+          <p className="mt-2 text-sm text-slate-400">No tiene roles asignados.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {rolesAsignados.map((asignacion) => (

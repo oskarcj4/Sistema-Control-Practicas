@@ -4,26 +4,36 @@ class Usuarios {
     private Connection $connection;
     private Response $response;
     private const ESTADOS_CUENTA = ['activo', 'inactivo', 'suspendido'];
+    private const ROL_ESTUDIANTE = 1; # el registro público siempre crea estudiantes
+
+    # Columnas comunes. Los roles salen de asignaciones_roles (usuarios no tiene rol_id):
+    #   roles -> ids "1,3"            rol -> nombres "estudiante, reclutador"
+    private const SELECT_USUARIO = "SELECT u.id, u.username, u.nombre, u.apellido, u.email,
+                                   (SELECT GROUP_CONCAT(ar.id_rol ORDER BY ar.id_rol)
+                                      FROM asignaciones_roles ar
+                                     WHERE ar.id_usuario = u.id AND ar.estado = 1) AS roles,
+                                   (SELECT GROUP_CONCAT(r.nombre ORDER BY r.id SEPARATOR ', ')
+                                      FROM asignaciones_roles ar
+                                      INNER JOIN roles r ON r.id = ar.id_rol
+                                     WHERE ar.id_usuario = u.id AND ar.estado = 1) AS rol,
+                                   u.institucion_id, i.nombre AS institucion,
+                                   u.carrera_id, c.nombre AS carrera,
+                                   u.carnet, u.telefono, u.biografia,
+                                   u.autorizado_publicar, u.estado_cuenta, u.fecha_registro
+                            FROM usuarios u
+                            LEFT JOIN instituciones i ON i.id = u.institucion_id
+                            LEFT JOIN carreras c ON c.id = u.carrera_id";
 
     public function __construct(Connection $connection, Response $response){
         $this->connection = $connection;
         $this->response = $response;
     }
 
-    # Mostrar todos los usuarios activos
+    # Mostrar todos los usuarios no eliminados (incluye suspendidos para que el admin los vea)
     public function findAll(){
         try {
-            $stmt = $this->connection->prepare("SELECT u.id, u.username, u.nombre, u.apellido, u.email,
-                                   u.rol_id, r.nombre AS rol,
-                                   u.institucion_id, i.nombre AS institucion,
-                                   u.carrera_id, c.nombre AS carrera,
-                                   u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado, u.fecha_registro
-                            FROM usuarios u
-                            INNER JOIN roles r ON r.id = u.rol_id
-                            LEFT JOIN instituciones i ON i.id = u.institucion_id
-                            LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 'activo' ORDER BY u.apellido, u.nombre");
+            $stmt = $this->connection->prepare(self::SELECT_USUARIO . "
+                            WHERE u.estado = 1 ORDER BY u.apellido, u.nombre");
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -39,17 +49,8 @@ class Usuarios {
             $this->response->error("El ID es invalido");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT u.id, u.username, u.nombre, u.apellido, u.email,
-                                   u.rol_id, r.nombre AS rol,
-                                   u.institucion_id, i.nombre AS institucion,
-                                   u.carrera_id, c.nombre AS carrera,
-                                   u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado, u.fecha_registro
-                            FROM usuarios u
-                            INNER JOIN roles r ON r.id = u.rol_id
-                            LEFT JOIN instituciones i ON i.id = u.institucion_id
-                            LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 'activo' AND u.id = ?");
+            $stmt = $this->connection->prepare(self::SELECT_USUARIO . "
+                            WHERE u.estado = 1 AND u.id = ?");
             $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -70,17 +71,8 @@ class Usuarios {
             $this->response->error("El email no es correcto");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT u.id, u.username, u.nombre, u.apellido, u.email,
-                                   u.rol_id, r.nombre AS rol,
-                                   u.institucion_id, i.nombre AS institucion,
-                                   u.carrera_id, c.nombre AS carrera,
-                                   u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado, u.fecha_registro
-                            FROM usuarios u
-                            INNER JOIN roles r ON r.id = u.rol_id
-                            LEFT JOIN instituciones i ON i.id = u.institucion_id
-                            LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 'activo' AND u.email = ?");
+            $stmt = $this->connection->prepare(self::SELECT_USUARIO . "
+                            WHERE u.estado = 1 AND u.email = ?");
             $stmt->execute([$email]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -95,23 +87,17 @@ class Usuarios {
         }
     }
 
-    # Filtrar por rol
+    # Filtrar por rol (usuarios que tienen ese rol activo en asignaciones_roles)
     public function findByRol(int $rol_id){
         if ($rol_id <= 0) {
             $this->response->error("El ID de rol es invalido");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT u.id, u.username, u.nombre, u.apellido, u.email,
-                                   u.rol_id, r.nombre AS rol,
-                                   u.institucion_id, i.nombre AS institucion,
-                                   u.carrera_id, c.nombre AS carrera,
-                                   u.carnet, u.telefono, u.biografia,
-                                   u.autorizado_publicar, u.estado, u.fecha_registro
-                            FROM usuarios u
-                            INNER JOIN roles r ON r.id = u.rol_id
-                            LEFT JOIN instituciones i ON i.id = u.institucion_id
-                            LEFT JOIN carreras c ON c.id = u.carrera_id
-                            WHERE u.estado = 'activo' AND u.rol_id = ? ORDER BY u.apellido, u.nombre");
+            $stmt = $this->connection->prepare(self::SELECT_USUARIO . "
+                            WHERE u.estado = 1
+                              AND EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                           WHERE ar.id_usuario = u.id AND ar.id_rol = ? AND ar.estado = 1)
+                            ORDER BY u.apellido, u.nombre");
             $stmt->execute([$rol_id]);
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -121,13 +107,9 @@ class Usuarios {
         }
     }
 
-    # Crear usuario
+    # Crear usuario (registro público): siempre entra como estudiante.
+    # Otros roles los asigna un administrador desde asignaciones_roles.
     public function add(array $arrayData) {
-        $ROL_DEFAULT = 1;
-        if (empty($arrayData["rol_id"])) {
-            $arrayData["rol_id"] = $ROL_DEFAULT;
-        }
-
         $data = $this->validate($arrayData);
         $password = $arrayData["password"] ?? '';
 
@@ -138,14 +120,11 @@ class Usuarios {
         $cifrada = password_hash($password, PASSWORD_DEFAULT);
 
         try {
-            $querySelect = "SELECT c.id FROM carreras INNER JOIN institucion i ON i.id_carrera = c.id WHERE c.id = ? AND i.id";
-            $stmt = $this->connection->prepare($querySelect);
-            $query2 = "INSERT INTO asignaciones_roles (id_usuario, id_rol) VALUES (?, ?) ON DUPLICATE KEY UPDATE estado = 1";
-            $stmt2 = $this->connection->prepare($query2);
-            $stmt->execute([$data['carrera_id'], $data['ins']]);
-            $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, institucion_id, carrera_id, carnet, telefono, biografia)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            # Usuario y rol se guardan juntos: si falla uno, no queda ninguno
+            $this->connection->beginTransaction();
 
+            $query = "INSERT INTO usuarios (username, nombre, apellido, email, password_hash, institucion_id, carrera_id, carnet, telefono, biografia)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([
                 $data['username'], $data['nombre'], $data['apellido'], $data['email'], $cifrada,
@@ -153,13 +132,17 @@ class Usuarios {
                 $data['carnet'], $data['telefono'], $data['biografia']
             ]);
 
-            if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo agregar el usuario");
-            }
-            $id_user = $this->connection->lastInsertId();
-            $stmt2->execute([$id_user, $data['rol_id']]);
+            $id_user = (int)$stmt->lastInsertId();
+
+            $stmt = $this->connection->prepare("INSERT INTO asignaciones_roles (id_usuario, id_rol) VALUES (?, ?)");
+            $stmt->execute([$id_user, self::ROL_ESTUDIANTE]);
+
+            $this->connection->commit();
             $this->response->success("Usuario registrado con éxito");
         } catch (PDOException $e) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
             if (($e->errorInfo[1] ?? 0) === 1062) {
                 $this->response->error("El username o el email ya están registrados");
             }
@@ -168,7 +151,7 @@ class Usuarios {
         }
     }
 
-    # Actualizar usuario (la contraseña no se cambia aquí)
+    # Actualizar usuario (la contraseña y los roles no se cambian aquí)
     public function update(array $arrayData){
         $id            = (int)($arrayData["id"] ?? 0);
         $estado_cuenta = trim($arrayData["estado_cuenta"] ?? 'activo');
@@ -185,8 +168,8 @@ class Usuarios {
 
         try {
             $query = "UPDATE usuarios SET username = ?, nombre = ?, apellido = ?, email = ?, institucion_id = ?,
-                             carrera_id = ?, carnet = ?, telefono = ?, biografia = ?, estado = ?
-                      WHERE id = ? AND estado = 'activo'";
+                             carrera_id = ?, carnet = ?, telefono = ?, biografia = ?, estado_cuenta = ?
+                      WHERE id = ? AND estado = 1";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([
                 $data['username'], $data['nombre'], $data['apellido'], $data['email'],
@@ -215,7 +198,7 @@ class Usuarios {
         }
 
         try {
-            $query = "UPDATE usuarios SET estado = 'inactivo' WHERE id = ? AND estado = 'activo'";
+            $query = "UPDATE usuarios SET estado = 0 WHERE id = ? AND estado = 1";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
 
@@ -235,7 +218,6 @@ class Usuarios {
         $nombre         = trim($arrayData["nombre"] ?? '');
         $apellido       = trim($arrayData["apellido"] ?? '');
         $email          = trim($arrayData["email"] ?? '');
-        $rol_id         = (int)($arrayData["rol_id"] ?? 0);
         $institucion_id = (int)($arrayData["institucion_id"] ?? 0);
         $carrera_id     = (int)($arrayData["carrera_id"] ?? 0);
         $carnet         = trim($arrayData["carnet"] ?? '');
@@ -260,10 +242,6 @@ class Usuarios {
             $this->response->error("El email no es correcto");
         }
 
-        if ($rol_id <= 0) {
-            $this->response->error("El rol es obligatorio");
-        }
-
         if (mb_strlen($carnet) > 30) {
             $this->response->error("El carnet no debe superar 30 caracteres");
         }
@@ -272,14 +250,8 @@ class Usuarios {
             $this->response->error("El teléfono no es valido");
         }
 
-        $stmt = $this->connection->prepare("SELECT id FROM roles WHERE id = ?");
-        $stmt->execute([$rol_id]);
-        if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
-            $this->response->error("El rol no existe");
-        }
-
         if ($institucion_id > 0) {
-            $stmt = $this->connection->prepare("SELECT id FROM instituciones WHERE id = ?");
+            $stmt = $this->connection->prepare("SELECT id FROM instituciones WHERE id = ? AND estado = 1");
             $stmt->execute([$institucion_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
                 $this->response->error("La institución no existe");
@@ -287,7 +259,7 @@ class Usuarios {
         }
 
         if ($carrera_id > 0) {
-            $stmt = $this->connection->prepare("SELECT institucion_id FROM carreras WHERE id = ?");
+            $stmt = $this->connection->prepare("SELECT institucion_id FROM carreras WHERE id = ? AND estado = 1");
             $stmt->execute([$carrera_id]);
             $carrera = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$carrera) {
@@ -303,7 +275,6 @@ class Usuarios {
             'nombre'         => $nombre,
             'apellido'       => $apellido,
             'email'          => $email,
-            'rol_id'         => $rol_id,
             'institucion_id' => $institucion_id > 0 ? $institucion_id : null,
             'carrera_id'     => $carrera_id > 0 ? $carrera_id : null,
             'carnet'         => $carnet !== '' ? $carnet : null,

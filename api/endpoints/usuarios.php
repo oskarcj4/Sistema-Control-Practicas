@@ -74,7 +74,6 @@ try {
                 'email'          => inputString($data, 'email'),
                 # La contraseña no se recorta: los espacios son parte de ella
                 'password'       => is_string($data['password'] ?? null) ? $data['password'] : '',
-                'rol_id'         => inputString($data, 'rol_id'),
                 'institucion_id' => inputString($data, 'institucion_id'),
                 'carrera_id'     => inputString($data, 'carrera_id'),
                 'carnet'         => inputString($data, 'carnet'),
@@ -90,7 +89,6 @@ try {
                 'nombre'         => inputString($data, 'nombre'),
                 'apellido'       => inputString($data, 'apellido'),
                 'email'          => inputString($data, 'email'),
-                'rol_id'         => inputString($data, 'rol_id'),
                 'institucion_id' => inputString($data, 'institucion_id'),
                 'carrera_id'     => inputString($data, 'carrera_id'),
                 'carnet'         => inputString($data, 'carnet'),

@@ -114,7 +114,9 @@ class Postulaciones {
         }
 
         try {
-            $stmt = $this->connection->prepare("SELECT u.id FROM usuarios u INNER JOIN roles r ON r.id = u.rol_id
+            $stmt = $this->connection->prepare("SELECT u.id FROM usuarios u
+                                                INNER JOIN asignaciones_roles ar ON ar.id_usuario = u.id AND ar.estado = 1
+                                                INNER JOIN roles r ON r.id = ar.id_rol
                                                 WHERE u.id = ? AND r.nombre = 'estudiante' AND u.estado = 1 AND u.estado_cuenta = 'activo'");
             $stmt->execute([$estudiante_id]);
             if (!$stmt->fetch(PDO::FETCH_ASSOC)) {

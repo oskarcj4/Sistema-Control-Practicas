@@ -1,37 +1,26 @@
 -- =============================================================================
--- SCRIPT DE BASE DE DATOS: FEED DE OPORTUNIDADES Y SEGUIMIENTO DE POSTULACIONES
--- Arquitectura: Monolito Modular con Control de Permisos de Publicación
--- Motor: MySQL 8.0+ / MariaDB 10.5+
+-- ESQUEMA: FEED DE OPORTUNIDADES Y SEGUIMIENTO DE POSTULACIONES
+-- Motor: MySQL 8.0+ / MariaDB 10.4+
 -- Juego de caracteres: utf8mb4 | Colación: utf8mb4_unicode_ci
+--
+-- ATENCIÓN: borra la base control_practicas_db completa y la crea de cero.
+-- Después de este archivo, correr database/seed.sql.
+--
+-- Roles: los roles de un usuario viven SOLO en asignaciones_roles.
+--        La tabla usuarios NO tiene rol_id.
 -- =============================================================================
 
-CREATE DATABASE IF NOT EXISTS control_practicas_db
+DROP DATABASE IF EXISTS control_practicas_db;
+
+CREATE DATABASE control_practicas_db
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
 USE control_practicas_db;
 
-SET FOREIGN_KEY_CHECKS = 0;
-
-DROP TABLE IF EXISTS bitacora;
-DROP TABLE IF EXISTS asignaciones_roles;
-DROP TABLE IF EXISTS sesiones_usuario;
-DROP TABLE IF EXISTS notificaciones;
-DROP TABLE IF EXISTS mensajes_postulacion;
-DROP TABLE IF EXISTS historial_estado_postulacion;
-DROP TABLE IF EXISTS postulaciones;
-DROP TABLE IF EXISTS solicitudes_publicacion;
-DROP TABLE IF EXISTS oportunidades;
-DROP TABLE IF EXISTS usuarios;
-DROP TABLE IF EXISTS carreras;
-DROP TABLE IF EXISTS instituciones;
-DROP TABLE IF EXISTS roles;
-
-SET FOREIGN_KEY_CHECKS = 1;
-
 CREATE TABLE roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE COMMENT 'administrador, estudiante, reclutador',
+    nombre VARCHAR(50) NOT NULL UNIQUE COMMENT 'estudiante, administrador, reclutador',
     descripcion VARCHAR(255) NULL,
     estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -55,7 +44,7 @@ CREATE TABLE carreras (
     codigo VARCHAR(30) NULL,
     estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_id_institucion_carreta (institucion_id),
+    INDEX idx_carreras_institucion (institucion_id),
     CONSTRAINT fk_carreras_institucion FOREIGN KEY (institucion_id)
         REFERENCES instituciones(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT uk_inst_carrera UNIQUE (institucion_id, nombre)
@@ -74,14 +63,27 @@ CREATE TABLE usuarios (
     telefono VARCHAR(30) NULL,
     biografia TEXT NULL,
     autorizado_publicar TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0: No autorizado a publicar ofertas, 1: Autorizado por admin',
+    estado_cuenta ENUM('activo', 'inactivo', 'suspendido') NOT NULL DEFAULT 'activo' COMMENT 'Estado de negocio de la cuenta',
     estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_usuarios_institucion FOREIGN KEY (institucion_id)
         REFERENCES instituciones(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_usuarios_carrera FOREIGN KEY (carrera_id)
         REFERENCES carreras(id) ON DELETE SET NULL ON UPDATE CASCADE,
-    INDEX idx_usuarios_email (email),
     INDEX idx_usuarios_autorizado (autorizado_publicar)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Roles de cada usuario (un usuario puede tener varios)
+CREATE TABLE asignaciones_roles (
+    id_usuario INT NOT NULL,
+    id_rol INT NOT NULL,
+    estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
+    PRIMARY KEY (id_usuario, id_rol),
+    INDEX idx_asignaciones_rol (id_rol),
+    CONSTRAINT fk_asignaciones_usuario FOREIGN KEY (id_usuario)
+        REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_asignaciones_rol FOREIGN KEY (id_rol)
+        REFERENCES roles(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE solicitudes_publicacion (
@@ -125,8 +127,9 @@ CREATE TABLE oportunidades (
         REFERENCES carreras(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_oportunidades_creador FOREIGN KEY (creado_por)
         REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE,
-    -- Índice optimizado para el Feed: filtro por carrera, estado activo y fecha en orden descendente
-    INDEX idx_feed_oportunidades (estado_oportunidad, carrera_id, fecha_publicacion DESC)
+    -- Feed con paginación por cursor: WHERE estado, estado_oportunidad ... ORDER BY id DESC
+    INDEX idx_feed_oportunidades (estado, estado_oportunidad, id),
+    INDEX idx_oportunidades_creador (creado_por)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE postulaciones (
@@ -148,7 +151,6 @@ CREATE TABLE postulaciones (
     INDEX idx_postulaciones_estado (estado_postulacion)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
 CREATE TABLE historial_estado_postulacion (
     id INT AUTO_INCREMENT PRIMARY KEY,
     postulacion_id INT NOT NULL,
@@ -164,7 +166,6 @@ CREATE TABLE historial_estado_postulacion (
         REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     INDEX idx_historial_postulacion (postulacion_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 CREATE TABLE notificaciones (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -189,26 +190,10 @@ CREATE TABLE sesiones_usuario (
     revocado TINYINT(1) NOT NULL DEFAULT 0,
     creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
-
-    CONSTRAINT fk_sesiones_usuario
-        FOREIGN KEY (usuario_id)
-        REFERENCES usuarios (id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
+    CONSTRAINT fk_sesiones_usuario FOREIGN KEY (usuario_id)
+        REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
     INDEX idx_sesiones_refresh_token (refresh_token_hash),
     INDEX idx_sesiones_usuario_id (usuario_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Roles extra de un usuario (el principal sigue en usuarios.rol_id)
-CREATE TABLE asignaciones_roles (
-    id_usuario INT NOT NULL,
-    id_rol INT NOT NULL,
-    estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
-    PRIMARY KEY (id_usuario, id_rol),
-    CONSTRAINT fk_asignaciones_usuario FOREIGN KEY (id_usuario)
-        REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_asignaciones_rol FOREIGN KEY (id_rol)
-        REFERENCES roles(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Bitácora que llena api/core/audit-log.php en cada INSERT/UPDATE/DELETE
@@ -223,47 +208,3 @@ CREATE TABLE bitacora (
     status TINYINT(1) NOT NULL DEFAULT 1,
     INDEX idx_bitacora_tabla (nameTable, idRowTable)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- =============================================================================
--- Seed de datos iniciales para la base de datos control_practicas_db
--- Orden de inserción: roles -> instituciones -> carreras
--- =============================================================================
-
--- 1. ROLES (Valores permitidos por el ENUM: estudiante, administrador, reclutador)
-INSERT INTO roles (id, nombre, descripcion) VALUES
-(1, 'estudiante', 'Usuario común del sistema (USER)'),
-(2, 'administrador', 'Administrador general del sistema (ADMIN)'),
-(3, 'reclutador', 'Usuario reclutador o evaluador')
-ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), descripcion = VALUES(descripcion);
-
--- 2. INSTITUCIONES
-INSERT INTO instituciones (id, nombre, siglas, tipo, contacto_email, sitio_web) VALUES
-(1, 'Universidad Mariano Gálvez de Guatemala', 'UMG', 'universidad', 'info@umg.edu.gt', 'https://umg.edu.gt'),
-(2, 'Universidad de San Carlos de Guatemala', 'USAC', 'universidad', 'informacion@usac.edu.gt', 'https://usac.edu.gt'),
-(3, 'Instituto Nacional Central para Varones', 'IN3', 'otra', 'contacto@in3.edu.gt', 'https://in3.edu.gt')
-ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), siglas = VALUES(siglas), tipo = VALUES(tipo), contacto_email = VALUES(contacto_email), sitio_web = VALUES(sitio_web);
-
--- 3. CARRERAS
-INSERT INTO carreras (id, institucion_id, nombre, codigo) VALUES
--- Carreras para UMG (institucion_id = 1)
-(1, 1, 'Ingeniería en Sistemas de Información y Ciencias de la Computación', 'UMG-ISICC'),
-(2, 1, 'Ingeniería Industrial', 'UMG-IND'),
-(3, 1, 'Ingeniería Civil', 'UMG-CIV'),
-(4, 1, 'Licenciatura en Ciencias Jurídicas y Sociales', 'UMG-DER'),
-(5, 1, 'Licenciatura en Administración de Empresas', 'UMG-ADM'),
-
--- Carreras para USAC (institucion_id = 2)
-(6, 2, 'Ingeniería en Ciencias y Sistemas', 'USAC-ICS'),
-(7, 2, 'Ingeniería Mecánica Eléctrica', 'USAC-IME'),
-(8, 2, 'Ingeniería Química', 'USAC-IQ'),
-(9, 2, 'Médico y Cirujano', 'USAC-MED'),
-(10, 2, 'Licenciatura en Auditoría y Contaduría Pública', 'USAC-CPA'),
-
--- Carreras/Especialidades para IN3 (institucion_id = 3)
-(11, 3, 'Bachillerato en Ciencias y Letras con Orientación en Computación', 'IN3-BCLC'),
-(12, 3, 'Perito en Electricidad Industrial', 'IN3-PEI'),
-(13, 3, 'Perito en Electrónica Digital', 'IN3-PED'),
-(14, 3, 'Perito en Mecánica Automotriz', 'IN3-PMA'),
-(15, 3, 'Bachillerato Industrial y Perito en Dibujo Técnico de Ingeniería', 'IN3-BIPD')
-ON DUPLICATE KEY UPDATE institucion_id = VALUES(institucion_id), nombre = VALUES(nombre), codigo = VALUES(codigo);

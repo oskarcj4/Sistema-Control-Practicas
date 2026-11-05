@@ -121,7 +121,9 @@ class Roles {
         }
 
         try {
-            $query = "SELECT COUNT(*) FROM usuarios WHERE rol_id = ? AND estado = 'activo'";
+            $query = "SELECT COUNT(*) FROM asignaciones_roles ar
+                      INNER JOIN usuarios u ON u.id = ar.id_usuario
+                      WHERE ar.id_rol = ? AND ar.estado = 1 AND u.estado = 1";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id]);
 

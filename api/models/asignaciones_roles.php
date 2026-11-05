@@ -27,7 +27,7 @@ class AsignacionesRoles {
         }
     }
 
-    # Roles extra de un usuario
+    # Roles de un usuario
     public function findByUsuario(int $id_usuario){
         if ($id_usuario <= 0) {
             $this->response->error("El ID de usuario es invalido");
@@ -85,6 +85,13 @@ class AsignacionesRoles {
         }
 
         try {
+            # Los roles solo viven aquí: un usuario sin roles no podría usar el sistema
+            $stmt = $this->connection->prepare("SELECT COUNT(*) FROM asignaciones_roles WHERE id_usuario = ? AND estado = 1");
+            $stmt->execute([$id_usuario]);
+            if ((int)$stmt->fetchColumn() <= 1) {
+                $this->response->error("No se puede quitar el único rol del usuario");
+            }
+
             $query = "UPDATE asignaciones_roles SET estado = 0 WHERE id_usuario = ? AND id_rol = ? AND estado = 1";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id_usuario, $id_rol]);

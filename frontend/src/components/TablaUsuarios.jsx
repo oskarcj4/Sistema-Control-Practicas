@@ -41,7 +41,7 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <th className="px-4 py-3">Usuario</th>
-            <th className="px-4 py-3">Rol principal</th>
+            <th className="px-4 py-3">Roles</th>
             <th className="px-4 py-3">Institución / Carrera</th>
             <th className="px-4 py-3">Registro</th>
             <th className="px-4 py-3">Estado</th>
@@ -51,7 +51,7 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
 
         <tbody className="divide-y divide-slate-100">
           {usuarios.map((u) => {
-            const estaActivo = u.estado === "activo";
+            const estaActivo = u.estado_cuenta === "activo";
 
             return (
               <tr key={u.id}>

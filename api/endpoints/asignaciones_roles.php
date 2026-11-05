@@ -2,6 +2,7 @@
 
 require_once __DIR__ . "/../models/asignaciones_roles.php";
 require_once __DIR__ . "/../core/connection.php";
+require_once __DIR__ . "/../core/auth-middleware.php";
 require_once __DIR__ . "/../core/request.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
@@ -12,6 +13,9 @@ header("Content-Type: application/json");
 $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
+
+# GET: cualquier usuario logueado. POST/PUT/DELETE: solo administrador (2), con CSRF.
+requireAuth($method === 'GET' ? [] : [2]);
 
 # POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
 $data = readJsonInput($method);

@@ -151,8 +151,13 @@ class Oportunidades {
         }
 
         try {
-            $stmt = $this->connection->prepare("SELECT u.autorizado_publicar, r.nombre AS rol FROM usuarios u
-                                                INNER JOIN roles r ON r.id = u.rol_id
+            # es_admin: 1 si tiene el rol administrador activo en asignaciones_roles
+            $stmt = $this->connection->prepare("SELECT u.autorizado_publicar,
+                                                       EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                                               INNER JOIN roles r ON r.id = ar.id_rol
+                                                               WHERE ar.id_usuario = u.id AND ar.estado = 1
+                                                                 AND r.nombre = 'administrador') AS es_admin
+                                                FROM usuarios u
                                                 WHERE u.id = ? AND u.estado = 1 AND u.estado_cuenta = 'activo'");
             $stmt->execute([$creado_por]);
             $creador = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -161,7 +166,7 @@ class Oportunidades {
                 $this->response->error("El creador no existe o no está activo");
             }
 
-            if ((int)$creador['autorizado_publicar'] !== 1 && $creador['rol'] !== 'administrador') {
+            if ((int)$creador['autorizado_publicar'] !== 1 && (int)$creador['es_admin'] !== 1) {
                 $this->response->error("El usuario no está autorizado para publicar oportunidades");
             }
 
