@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Feed from "./Feed";
+import { MisPostulaciones } from "./MisPostulaciones";
 import Navbar from "./Navbar";
 import PerfilForm from "./PerfilForm";
 import TablaUsuarios from "./TablaUsuarios";
@@ -33,14 +34,7 @@ export default function MainPage() {
 
         {pestanaActiva === "feed" && <Feed/>}
 
-        {pestanaActiva === "mis-postulaciones" && (
-          // T9: aquí va la carga con useEffect y el .map() con <PostulacionCard />
-          <EstadoVacio
-            icono="📄"
-            titulo="Mis postulaciones"
-            mensaje="Aquí verás el estado de tus solicitudes (pendiente T9)."
-          />
-        )}
+        {pestanaActiva === "mis-postulaciones" && <MisPostulaciones/>}
 
         {pestanaActiva === "nueva-oferta" && (
           // T11: formulario "Publicar Oportunidad"

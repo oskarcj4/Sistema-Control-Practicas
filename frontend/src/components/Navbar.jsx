@@ -34,8 +34,11 @@ export default function Navbar({
       return usuario.isAdmin
     }
     if (p.id === "nueva-oferta"){
-      if (usuario.rol === ROL_RECLUTADOR|| usuario.rol === ROL_ADMIN){
-        return true
+      if (usuario.rol === ROL_ADMIN){
+        return true;
+      }
+      else if (usuario.rol === ROL_RECLUTADOR){
+        return true;
       }
       else{
         return false;

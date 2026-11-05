@@ -139,13 +139,18 @@ CREATE TABLE postulaciones (
     fecha_postulacion DATETIME DEFAULT CURRENT_TIMESTAMP,
     estado_postulacion ENUM('pendiente', 'en_revision', 'aceptada', 'rechazada') NOT NULL DEFAULT 'pendiente',
     estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
-    cv_url VARCHAR(255) NOT NULL COMMENT 'PDF de hoja de vida',
-    constancia_estudios_url VARCHAR(255) NULL COMMENT 'PDF opcional de constancia de materias/créditos',
+    cv_url VARCHAR(255) NOT NULL COMMENT 'URL del PDF de hoja de vida en el almacenamiento del sistema (local o S3)',
+    constancia_estudios_url VARCHAR(255) NULL COMMENT 'URL opcional (PDF/JPG/PNG) de constancia en el almacenamiento del sistema',
     mensaje_presentacion TEXT NULL,
+    carrera_id INT NULL COMMENT 'Carrera que declara el estudiante al postularse',
+    edad TINYINT UNSIGNED NULL COMMENT 'Edad declarada al postularse',
+    ciclo_universitario TINYINT UNSIGNED NULL COMMENT 'Ciclo/semestre que cursa al postularse',
     CONSTRAINT fk_postulaciones_oportunidad FOREIGN KEY (oportunidad_id)
         REFERENCES oportunidades(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_postulaciones_estudiante FOREIGN KEY (estudiante_id)
         REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_postulaciones_carrera FOREIGN KEY (carrera_id)
+        REFERENCES carreras(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT uk_oportunidad_estudiante UNIQUE (oportunidad_id, estudiante_id),
     INDEX idx_postulaciones_estudiante (estudiante_id),
     INDEX idx_postulaciones_estado (estado_postulacion)

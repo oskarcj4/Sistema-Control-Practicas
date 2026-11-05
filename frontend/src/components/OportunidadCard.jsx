@@ -21,37 +21,51 @@ export default function OportunidadCard({ oportunidad, onVerMas }) {
   const textoModalidad =
     TEXTO_MODALIDAD[oportunidad.modalidad] || oportunidad.modalidad;
 
+  const inicialInstitucion = (oportunidad.institucion || "P").charAt(0).toUpperCase();
+
   return (
-    <article className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-      <div>
-        {/* Tag de modalidad */}
-        <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${colorModalidad}`}>
+    <article className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md">
+      {/* Cabecera estilo post: Avatar + Institución + Badge */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-base font-bold text-indigo-700">
+            {inicialInstitucion}
+          </div>
+          <div>
+            <h4 className="font-semibold text-slate-900">
+              {oportunidad.institucion || "Institución no especificada"}
+            </h4>
+            <p className="text-xs text-slate-500">
+              🎓 {oportunidad.carrera || "Cualquier carrera"} {oportunidad.ubicacion ? `· 📍 ${oportunidad.ubicacion}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${colorModalidad}`}>
           {textoModalidad}
         </span>
+      </div>
 
-        <h3 className="mt-3 text-lg font-bold text-slate-800">{oportunidad.titulo}</h3>
+      {/* Cuerpo de la publicación */}
+      <div className="mt-4">
+        <h3 className="text-lg font-bold text-slate-800">{oportunidad.titulo}</h3>
 
-        <p className="mt-1 text-sm text-slate-600">
-          🏢 {oportunidad.institucion || "Institución no especificada"}
-        </p>
-        <p className="text-sm text-slate-600">
-          🎓 {oportunidad.carrera || "Cualquier carrera"}
-        </p>
-
-        {/* line-clamp-2 corta la descripción a 2 líneas y pone "..." */}
         {oportunidad.descripcion && (
-          <p className="mt-3 line-clamp-2 text-sm text-slate-500">{oportunidad.descripcion}</p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            {oportunidad.descripcion}
+          </p>
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
-        <span className="text-xs text-slate-500">
-          📅 Cierra: {formatearFecha(oportunidad.fecha_cierre)}
+      {/* Pie de la publicación */}
+      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+        <span className="text-xs font-medium text-slate-500">
+          📅 Cierre: {formatearFecha(oportunidad.fecha_cierre)}
         </span>
         <button
           type="button"
           onClick={onVerMas}
-          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+          className="cursor-pointer rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
         >
           Ver más
         </button>

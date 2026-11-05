@@ -28,3 +28,7 @@ package-lock.json
 # Secretos del backend
 api/core/.env
 env.md
+
+# Archivos subidos por usuarios (almacenamiento local). Solo se versiona la protección.
+uploads/*
+!uploads/.htaccess
