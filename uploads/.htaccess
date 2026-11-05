@@ -1,0 +1,32 @@
+# Carpeta de archivos subidos por usuarios (STORAGE_DRIVER=local).
+# Solo se sirven documentos permitidos; nada aquí se ejecuta nunca.
+
+Options -Indexes -ExecCGI
+
+# Denegar todo por defecto...
+Require all denied
+
+# ...y permitir únicamente los formatos que acepta el backend
+<FilesMatch "(?i)\.(pdf|jpg|jpeg|png)$">
+    Require all granted
+</FilesMatch>
+
+# Apagar PHP en esta carpeta aunque alguien logre colar un .php
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+RemoveHandler .php .phtml .phar .php5 .php7 .php8
+RemoveType .php .phtml .phar .php5 .php7 .php8
+
+<IfModule mod_headers.c>
+    # El navegador no debe "adivinar" otro tipo de contenido
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# Las reglas del .htaccess raíz (front de React) no aplican aquí
+<IfModule mod_rewrite.c>
+    RewriteEngine Off
+</IfModule>
