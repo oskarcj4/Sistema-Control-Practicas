@@ -1,9 +1,44 @@
 <?php
 
+require_once __DIR__ . "/../core/storage/storage.php";
+
 class Postulaciones {
     private Connection $connection;
     private Response $response;
     private const ESTADOS_POSTULACION = ['pendiente', 'en_revision', 'aceptada', 'rechazada'];
+
+    /**
+     * Campos de texto/número del formulario de postulación.
+     *
+     * La llave es el nombre del campo en el formulario Y el nombre de la columna en
+     * la tabla postulaciones. Para agregar un dato nuevo al formulario:
+     *   1. Crear la columna en la tabla (ver database/migrations).
+     *   2. Agregar una entrada aquí con sus reglas.
+     * El INSERT, el UPDATE y la validación se arman solos a partir de esta lista.
+     *
+     * Reglas:
+     *   tipo      'entero' | 'texto'
+     *   requerido true si no puede quedar vacío
+     *   min/max   rango (entero) o largo máximo en caracteres (texto)
+     *   etiqueta  nombre que se muestra en los mensajes de error
+     */
+    public const CAMPOS_FORMULARIO = [
+        'carrera_id'           => ['tipo' => 'entero', 'requerido' => true,  'min' => 1,  'max' => 2147483647, 'etiqueta' => 'carrera'],
+        'edad'                 => ['tipo' => 'entero', 'requerido' => true,  'min' => 15, 'max' => 99,         'etiqueta' => 'edad'],
+        'ciclo_universitario'  => ['tipo' => 'entero', 'requerido' => true,  'min' => 1,  'max' => 20,         'etiqueta' => 'ciclo universitario'],
+        'mensaje_presentacion' => ['tipo' => 'texto',  'requerido' => false,              'max' => 3000,       'etiqueta' => 'mensaje de presentación'],
+    ];
+
+    private const SELECT_BASE = "SELECT p.id, p.oportunidad_id, o.titulo AS oportunidad,
+                                   p.estudiante_id, CONCAT(u.nombre, ' ', u.apellido) AS estudiante, u.email, u.carnet,
+                                   p.carrera_id, c.nombre AS carrera, p.edad, p.ciclo_universitario,
+                                   p.fecha_postulacion, p.estado_postulacion, p.cv_url, p.constancia_estudios_url, p.mensaje_presentacion
+                            FROM postulaciones p
+                            INNER JOIN oportunidades o ON o.id = p.oportunidad_id
+                            INNER JOIN usuarios u ON u.id = p.estudiante_id
+                            LEFT JOIN carreras c ON c.id = p.carrera_id
+                            WHERE p.estado = 1";
+
     public function __construct(Connection $connection, Response $response){
         $this->connection = $connection;
         $this->response = $response;
@@ -12,13 +47,7 @@ class Postulaciones {
     # Mostrar todas las postulaciones
     public function findAll(){
         try {
-            $stmt = $this->connection->prepare("SELECT p.id, p.oportunidad_id, o.titulo AS oportunidad,
-                                   p.estudiante_id, CONCAT(u.nombre, ' ', u.apellido) AS estudiante, u.email, u.carnet,
-                                   p.fecha_postulacion, p.estado_postulacion, p.cv_url, p.constancia_estudios_url, p.mensaje_presentacion
-                            FROM postulaciones p
-                            INNER JOIN oportunidades o ON o.id = p.oportunidad_id
-                            INNER JOIN usuarios u ON u.id = p.estudiante_id
-                            WHERE p.estado = 1 ORDER BY p.fecha_postulacion DESC");
+            $stmt = $this->connection->prepare(self::SELECT_BASE . " ORDER BY p.fecha_postulacion DESC");
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -34,13 +63,7 @@ class Postulaciones {
             $this->response->error("El ID es invalido");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT p.id, p.oportunidad_id, o.titulo AS oportunidad,
-                                   p.estudiante_id, CONCAT(u.nombre, ' ', u.apellido) AS estudiante, u.email, u.carnet,
-                                   p.fecha_postulacion, p.estado_postulacion, p.cv_url, p.constancia_estudios_url, p.mensaje_presentacion
-                            FROM postulaciones p
-                            INNER JOIN oportunidades o ON o.id = p.oportunidad_id
-                            INNER JOIN usuarios u ON u.id = p.estudiante_id
-                            WHERE p.estado = 1 AND p.id = ?");
+            $stmt = $this->connection->prepare(self::SELECT_BASE . " AND p.id = ?");
             $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -61,13 +84,7 @@ class Postulaciones {
             $this->response->error("El ID del estudiante es invalido");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT p.id, p.oportunidad_id, o.titulo AS oportunidad,
-                                   p.estudiante_id, CONCAT(u.nombre, ' ', u.apellido) AS estudiante, u.email, u.carnet,
-                                   p.fecha_postulacion, p.estado_postulacion, p.cv_url, p.constancia_estudios_url, p.mensaje_presentacion
-                            FROM postulaciones p
-                            INNER JOIN oportunidades o ON o.id = p.oportunidad_id
-                            INNER JOIN usuarios u ON u.id = p.estudiante_id
-                            WHERE p.estado = 1 AND p.estudiante_id = ? ORDER BY p.fecha_postulacion DESC");
+            $stmt = $this->connection->prepare(self::SELECT_BASE . " AND p.estudiante_id = ? ORDER BY p.fecha_postulacion DESC");
             $stmt->execute([$estudiante_id]);
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -83,13 +100,7 @@ class Postulaciones {
             $this->response->error("El ID de la oportunidad es invalido");
         }
         try {
-            $stmt = $this->connection->prepare("SELECT p.id, p.oportunidad_id, o.titulo AS oportunidad,
-                                   p.estudiante_id, CONCAT(u.nombre, ' ', u.apellido) AS estudiante, u.email, u.carnet,
-                                   p.fecha_postulacion, p.estado_postulacion, p.cv_url, p.constancia_estudios_url, p.mensaje_presentacion
-                            FROM postulaciones p
-                            INNER JOIN oportunidades o ON o.id = p.oportunidad_id
-                            INNER JOIN usuarios u ON u.id = p.estudiante_id
-                            WHERE p.estado = 1 AND p.oportunidad_id = ? ORDER BY p.fecha_postulacion");
+            $stmt = $this->connection->prepare(self::SELECT_BASE . " AND p.oportunidad_id = ? ORDER BY p.fecha_postulacion");
             $stmt->execute([$oportunidad_id]);
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
@@ -99,12 +110,73 @@ class Postulaciones {
         }
     }
 
-    # Crear postulación (solo estudiantes activos, oportunidad activa y vigente)
-    public function add(array $arrayData) {
-        $oportunidad_id = (int)($arrayData["oportunidad_id"] ?? 0);
-        $estudiante_id  = (int)($arrayData["estudiante_id"] ?? 0);
-        $data = $this->validate($arrayData);
+    /**
+     * Valida los campos de CAMPOS_FORMULARIO y que la carrera exista.
+     *
+     * Si se pasa $actual (edición), los campos que no vengan en $input conservan
+     * el valor que ya tenía la postulación.
+     *
+     * @return array columna => valor listo para guardar (null si es opcional y vino vacío)
+     */
+    public function validarFormulario(array $input, ?array $actual = null): array {
+        $resultado = [];
 
+        foreach (self::CAMPOS_FORMULARIO as $campo => $regla) {
+            $raw = array_key_exists($campo, $input) ? $input[$campo] : ($actual[$campo] ?? null);
+            $valor = is_scalar($raw) ? trim((string)$raw) : '';
+            $etiqueta = $regla['etiqueta'];
+
+            if ($valor === '') {
+                if ($regla['requerido']) {
+                    $this->response->error("El campo $etiqueta es obligatorio");
+                }
+                $resultado[$campo] = null;
+                continue;
+            }
+
+            if ($regla['tipo'] === 'entero') {
+                $numero = filter_var($valor, FILTER_VALIDATE_INT, [
+                    'options' => ['min_range' => $regla['min'], 'max_range' => $regla['max']],
+                ]);
+                if ($numero === false) {
+                    $rango = $regla['max'] < 2147483647 ? " entre {$regla['min']} y {$regla['max']}" : '';
+                    $this->response->error("El campo $etiqueta debe ser un número entero$rango");
+                }
+                $resultado[$campo] = $numero;
+            } else {
+                if (mb_strlen($valor) > $regla['max']) {
+                    $this->response->error("El campo $etiqueta no debe superar {$regla['max']} caracteres");
+                }
+                $resultado[$campo] = $valor;
+            }
+        }
+
+        if ($resultado['carrera_id'] === null) {
+            return $resultado;
+        }
+
+        try {
+            $stmt = $this->connection->prepare("SELECT id FROM carreras WHERE id = ? AND estado = 1");
+            $stmt->execute([$resultado['carrera_id']]);
+            if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+                $this->response->error("La carrera seleccionada no existe");
+            }
+        } catch (PDOException $e) {
+            Response::error("Error");
+            //Response::debugError($e);
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Revisa que el estudiante y la oportunidad permitan una postulación nueva.
+     * Se llama ANTES de subir archivos para no subir nada si la postulación no procede.
+     *
+     * @return array|null postulación retirada anteriormente (estado = 0) que se reactivará,
+     *                    con sus URLs para borrar los archivos viejos; null si es nueva.
+     */
+    public function validarAlta(int $oportunidad_id, int $estudiante_id): ?array {
         if ($oportunidad_id <= 0) {
             $this->response->error("La oportunidad es obligatoria");
         }
@@ -130,7 +202,7 @@ class Postulaciones {
             }
 
             # Si la retiró antes (estado = 0) se reactiva; la llave única oportunidad+estudiante sigue ocupada
-            $stmt = $this->connection->prepare("SELECT id, estado FROM postulaciones WHERE oportunidad_id = ? AND estudiante_id = ?");
+            $stmt = $this->connection->prepare("SELECT id, estado, cv_url, constancia_estudios_url FROM postulaciones WHERE oportunidad_id = ? AND estudiante_id = ?");
             $stmt->execute([$oportunidad_id, $estudiante_id]);
             $previa = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -138,19 +210,35 @@ class Postulaciones {
                 $this->response->error("El estudiante ya se postuló a esta oportunidad");
             }
 
+            return $previa ?: null;
+        } catch (PDOException $e) {
+            Response::error("Error");
+            //Response::debugError($e);
+        }
+    }
+
+    /**
+     * Inserta la postulación (o reactiva la retirada) con los datos del formulario
+     * y las URLs de los archivos YA subidos al almacenamiento.
+     */
+    public function registrar(int $oportunidad_id, int $estudiante_id, ?array $previa, array $formulario, array $documentos) {
+        $campos = array_merge($formulario, $this->validarDocumentos($documentos));
+        $columnas = array_keys($campos);
+
+        try {
             if ($previa) {
-                $query = "UPDATE postulaciones SET estado = 1, estado_postulacion = 'pendiente', fecha_postulacion = NOW(),
-                                 cv_url = ?, constancia_estudios_url = ?, mensaje_presentacion = ?
+                $set = implode(', ', array_map(static fn($c) => "$c = ?", $columnas));
+                $query = "UPDATE postulaciones SET estado = 1, estado_postulacion = 'pendiente', fecha_postulacion = NOW(), $set
                           WHERE id = ?";
                 $stmt = $this->connection->prepare($query);
-                $stmt->execute([$data['cv_url'], $data['constancia_estudios_url'], $data['mensaje_presentacion'], (int)$previa['id']]);
+                $stmt->execute([...array_values($campos), (int)$previa['id']]);
                 $this->response->success("Postulación registrada con éxito");
             }
 
-            $query = "INSERT INTO postulaciones (oportunidad_id, estudiante_id, cv_url, constancia_estudios_url, mensaje_presentacion)
-                      VALUES (?, ?, ?, ?, ?)";
+            $query = "INSERT INTO postulaciones (oportunidad_id, estudiante_id, " . implode(', ', $columnas) . ")
+                      VALUES (?, ?, " . implode(', ', array_fill(0, count($columnas), '?')) . ")";
             $stmt = $this->connection->prepare($query);
-            $stmt->execute([$oportunidad_id, $estudiante_id, $data['cv_url'], $data['constancia_estudios_url'], $data['mensaje_presentacion']]);
+            $stmt->execute([$oportunidad_id, $estudiante_id, ...array_values($campos)]);
 
             if ($stmt->rowCount() === 0) {
                 $this->response->error("No se pudo registrar la postulación");
@@ -166,21 +254,50 @@ class Postulaciones {
         }
     }
 
-    # Actualizar documentos y mensaje (solo mientras está pendiente)
-    public function update(array $arrayData){
-        $id = (int)($arrayData["id"] ?? 0);
-
+    /**
+     * Postulación que todavía se puede editar (activa y pendiente).
+     * Devuelve sus URLs y campos actuales; corta con error si no existe o ya está en proceso.
+     */
+    public function buscarEditable(int $id): array {
         if ($id <= 0) {
             $this->response->error("El ID es invalido");
         }
 
-        $data = $this->validate($arrayData);
+        try {
+            $columnas = implode(', ', array_keys(self::CAMPOS_FORMULARIO));
+            $stmt = $this->connection->prepare("SELECT id, estado_postulacion, cv_url, constancia_estudios_url, $columnas
+                                                FROM postulaciones WHERE id = ? AND estado = 1");
+            $stmt->execute([$id]);
+            $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$actual) {
+                $this->response->error("Postulación no encontrada");
+            }
+            if ($actual['estado_postulacion'] !== 'pendiente') {
+                $this->response->error("La postulación ya está en proceso y no se puede editar");
+            }
+
+            return $actual;
+        } catch (PDOException $e) {
+            Response::error("Error");
+            //Response::debugError($e);
+        }
+    }
+
+    # Actualizar datos del formulario y documentos (solo mientras está pendiente)
+    public function actualizar(int $id, array $formulario, array $documentos){
+        if ($id <= 0) {
+            $this->response->error("El ID es invalido");
+        }
+
+        $campos = array_merge($formulario, $this->validarDocumentos($documentos));
+        $set = implode(', ', array_map(static fn($c) => "$c = ?", array_keys($campos)));
 
         try {
-            $query = "UPDATE postulaciones SET cv_url = ?, constancia_estudios_url = ?, mensaje_presentacion = ?
+            $query = "UPDATE postulaciones SET $set
                       WHERE id = ? AND estado = 1 AND estado_postulacion = 'pendiente'";
             $stmt = $this->connection->prepare($query);
-            $stmt->execute([$data['cv_url'], $data['constancia_estudios_url'], $data['mensaje_presentacion'], $id]);
+            $stmt->execute([...array_values($campos), $id]);
 
             if ($stmt->rowCount() === 0) {
                 $this->response->error("Postulación no encontrada, ya en proceso o sin cambios");
@@ -275,36 +392,30 @@ class Postulaciones {
         }
     }
 
-    private function validate(array $arrayData): array {
-        $cv_url                  = trim($arrayData["cv_url"] ?? '');
-        $constancia_estudios_url = trim($arrayData["constancia_estudios_url"] ?? '');
-        $mensaje_presentacion    = trim($arrayData["mensaje_presentacion"] ?? '');
+    /**
+     * Última barrera antes de la base de datos: las URLs de documentos solo pueden
+     * apuntar al almacenamiento del sistema (carpeta local o S3, según el .env) y el
+     * archivo debe existir. Ver Storage::isAllowedUrl().
+     */
+    private function validarDocumentos(array $documentos): array {
+        $cv_url                  = trim((string)($documentos['cv_url'] ?? ''));
+        $constancia_estudios_url = trim((string)($documentos['constancia_estudios_url'] ?? ''));
 
-        if ($cv_url === '' || mb_strlen($cv_url) > 255) {
-            $this->response->error("El CV es obligatorio y su URL no debe superar 255 caracteres");
+        if ($cv_url === '') {
+            $this->response->error("El CV es obligatorio");
         }
 
-        if (!$this->isUrl($cv_url)) {
-            $this->response->error("La URL del CV no es valida");
+        if (!Storage::isAllowedUrl($cv_url)) {
+            $this->response->error("El enlace del CV no pertenece al almacenamiento del sistema");
         }
 
-        if (mb_strlen($constancia_estudios_url) > 255) {
-            $this->response->error("La URL de la constancia no debe superar 255 caracteres");
-        }
-
-        if ($constancia_estudios_url !== '' && !$this->isUrl($constancia_estudios_url)) {
-            $this->response->error("La URL de la constancia no es valida");
+        if ($constancia_estudios_url !== '' && !Storage::isAllowedUrl($constancia_estudios_url)) {
+            $this->response->error("El enlace de la constancia no pertenece al almacenamiento del sistema");
         }
 
         return [
             'cv_url'                  => $cv_url,
             'constancia_estudios_url' => $constancia_estudios_url !== '' ? $constancia_estudios_url : null,
-            'mensaje_presentacion'    => $mensaje_presentacion !== '' ? $mensaje_presentacion : null,
         ];
-    }
-
-    # Solo http/https: evita guardar enlaces "javascript:" que luego se pintan en el front
-    private function isUrl(string $value): bool {
-        return filter_var($value, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $value) === 1;
     }
 }

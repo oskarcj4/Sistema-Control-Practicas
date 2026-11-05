@@ -2,9 +2,15 @@
 
 class Response
 {
+    /**
+     * Último "code" enviado (1 = éxito). Lo usa UploadTransaction al terminar la
+     * petición para decidir si borra los archivos nuevos o los reemplazados.
+     */
+    public static ?int $lastCode = null;
 
     public static function json($code, $message = "", $data = [], $httpCode = 200)
     {
+        self::$lastCode = (int)$code;
         http_response_code($httpCode);
         echo json_encode([
             "code" => $code,
