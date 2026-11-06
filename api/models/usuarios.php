@@ -107,21 +107,43 @@ class Usuarios {
         }
     }
 
-    # Búsqueda de usuarios por nombre, apellido, username o email
-    public function search(string $termino){
+    # Columnas públicas para la lupa cuando quien busca no es admin:
+    # sin email, teléfono, carnet ni datos de cuenta.
+    private const SELECT_USUARIO_PUBLICO = "SELECT u.id, u.username, u.nombre, u.apellido,
+                                   (SELECT GROUP_CONCAT(ar.id_rol ORDER BY ar.id_rol)
+                                      FROM asignaciones_roles ar
+                                     WHERE ar.id_usuario = u.id AND ar.estado = 1) AS roles,
+                                   (SELECT GROUP_CONCAT(r.nombre ORDER BY r.id SEPARATOR ', ')
+                                      FROM asignaciones_roles ar
+                                      INNER JOIN roles r ON r.id = ar.id_rol
+                                     WHERE ar.id_usuario = u.id AND ar.estado = 1) AS rol,
+                                   u.institucion_id, i.nombre AS institucion,
+                                   u.carrera_id, c.nombre AS carrera,
+                                   u.biografia
+                            FROM usuarios u
+                            LEFT JOIN instituciones i ON i.id = u.institucion_id
+                            LEFT JOIN carreras c ON c.id = u.carrera_id";
+
+    # Búsqueda de usuarios por nombre, apellido o username (email solo para admin).
+    # $completo = true devuelve todas las columnas (admin); false, solo las públicas.
+    public function search(string $termino, bool $completo = false){
         $termino = trim($termino);
         if ($termino === '') {
             $this->response->success([]);
             return;
         }
         try {
-            $like = '%' . $termino . '%';
-            $stmt = $this->connection->prepare(self::SELECT_USUARIO . "
+            $like   = '%' . $termino . '%';
+            $select = $completo ? self::SELECT_USUARIO : self::SELECT_USUARIO_PUBLICO;
+            # Un no-admin no puede buscar por email (evita enumerar correos)
+            $porEmail = $completo ? " OR u.email LIKE ?" : "";
+            $params   = $completo ? [$like, $like, $like, $like] : [$like, $like, $like];
+            $stmt = $this->connection->prepare($select . "
                             WHERE u.estado = 1 AND u.estado_cuenta = 'activo' AND (
-                                u.nombre LIKE ? OR u.apellido LIKE ? OR u.username LIKE ? OR u.email LIKE ?
+                                u.nombre LIKE ? OR u.apellido LIKE ? OR u.username LIKE ?$porEmail
                             )
                             ORDER BY u.nombre, u.apellido LIMIT 15");
-            $stmt->execute([$like, $like, $like, $like]);
+            $stmt->execute($params);
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
         } catch (PDOException $e) {

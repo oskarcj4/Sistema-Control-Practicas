@@ -329,7 +329,10 @@ class Postulaciones {
         }
 
         try {
-            $stmt = $this->connection->prepare("SELECT estado_postulacion FROM postulaciones WHERE id = ? AND estado = 1");
+            $stmt = $this->connection->prepare("SELECT p.estado_postulacion, p.estudiante_id, o.titulo
+                                                FROM postulaciones p
+                                                INNER JOIN oportunidades o ON o.id = p.oportunidad_id
+                                                WHERE p.id = ? AND p.estado = 1");
             $stmt->execute([$id]);
             $postulacion = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -356,6 +359,14 @@ class Postulaciones {
                       VALUES (?, ?, ?, ?, ?)";
             $stmt = $this->connection->prepare($query);
             $stmt->execute([$id, $postulacion['estado_postulacion'], $estado_postulacion, $comentario !== '' ? $comentario : null, $actualizado_por]);
+
+            # Notificación al estudiante (antes la mandaba el frontend con POST notificaciones.php)
+            $titulo = $estado_postulacion === 'aceptada' ? "🎉 ¡Postulación Aceptada!" : "Actualización de tu postulación";
+            $mensaje = $comentario !== ''
+                ? $comentario
+                : "Tu postulación para \"{$postulacion['titulo']}\" cambió a: {$estado_postulacion}.";
+            $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
+            $stmt->execute([(int)$postulacion['estudiante_id'], $titulo, $mensaje]);
 
             $this->connection->commit();
 

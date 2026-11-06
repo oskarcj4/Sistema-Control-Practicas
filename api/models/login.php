@@ -29,7 +29,7 @@ class Login {
 
         try {
             # Los roles viven solo en asignaciones_roles (usuarios no tiene rol_id)
-            $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash, u.institucion_id,
+            $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash, u.institucion_id, u.autorizado_publicar,
                              (SELECT GROUP_CONCAT(ar.id_rol ORDER BY ar.id_rol)
                                 FROM asignaciones_roles ar
                                WHERE ar.id_usuario = u.id AND ar.estado = 1) AS roles
@@ -82,6 +82,7 @@ class Login {
                 'roles'     => $payload['roles'],
                 'isAdmin'   => $payload['isAdmin'],
                 'institucion_id' => $payload['institucion_id'],
+                'autorizado_publicar' => (int)$result['autorizado_publicar'],
                 'csrfToken' => csrfToken()
             ], "Logueado exitosamente");
         } catch (PDOException $e) {
@@ -91,6 +92,14 @@ class Login {
     }
 
     # Cierra sesión: borra la cookie
+    # Estado actual de autorización para publicar. Se lee de la BD en cada carga
+    # porque cambia cuando un admin aprueba una solicitud.
+    public function autorizadoPublicar(int $usuario_id): int {
+        $stmt = $this->connection->prepare("SELECT autorizado_publicar FROM usuarios WHERE id = ? AND estado = 1");
+        $stmt->execute([$usuario_id]);
+        return (int)($stmt->fetchColumn() ?: 0);
+    }
+
     public function logout() {
         setcookie(COOKIE_NAME, '', [
             'expires'  => time() - 3600,
