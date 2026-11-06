@@ -8,15 +8,15 @@ import {
   TEXTO_ROL,
   obtenerRoles,
 } from "../helpers/estilos";
+import BuscadorUsuarios from "./BuscadorUsuarios";
 import NotificacionesDropdown from "./NotificacionesDropdown";
 
-
 // Props:
-//   pestanas: arreglo { id, texto } con las pestañas a mostrar, de debe decidir qué pestañas recibe según el rol. T10
+//   pestanas: arreglo { id, texto } con las pestañas a mostrar
 //   pestanaActiva : id de la pestaña seleccionada
 //   onCambiarPestana : función(id) que cambia de pantalla
-//   notificaciones : (opcional) arreglo para la campana (T17)
-//   onClickNotificacion : (opcional) función(notificacion) (T18)
+//   notificaciones : arreglo para la campana
+//   onClickNotificacion : función(notificacion) al hacer clic
 export default function Navbar({
   pestanas,
   pestanaActiva,
@@ -24,7 +24,7 @@ export default function Navbar({
   notificaciones,
   onClickNotificacion,
 }) {
-  const { usuario, logout } = useContext(AuthContext); // Obtenemos el usuario del AuthContext
+  const { usuario, logout } = useContext(AuthContext);
 
   // Elige el rol "más importante" para el badge: Admin > Reclutador > Estudiante
   const roles = obtenerRoles(usuario);
@@ -42,6 +42,10 @@ export default function Navbar({
     if (p.id === "mis-postulaciones") {
       return esEstudiante;
     }
+    if (p.id === "solicitud-publicacion") {
+      // Visible para usuarios que no son admin y aún no están autorizados a publicar ofertas
+      return !esAdmin && Number(usuario?.autorizado_publicar) !== 1;
+    }
     return true; // "feed", "perfil"
   });
 
@@ -54,19 +58,26 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
-      {/* Fila superior: logo + usuario + campana + salir */}
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white">
+      {/* Fila superior: Logo + Buscador (Lupa) + Usuario + Campana + Salir */}
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        {/* Logo */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white shadow-sm">
             SP
           </span>
-          <span className="hidden text-lg font-bold text-slate-800 sm:block">
+          <span className="hidden text-lg font-bold text-slate-800 lg:block">
             Sistema de Prácticas
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right">
+        {/* Lupa / Buscador de usuarios */}
+        <div className="mx-2 flex-1 max-w-xs sm:max-w-sm">
+          <BuscadorUsuarios />
+        </div>
+
+        {/* Info usuario + notificaciones + logout */}
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-slate-800">@{usuario?.username}</p>
             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_ROL[rolBadge]}`}>
               {TEXTO_ROL[rolBadge]}
@@ -88,9 +99,8 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* Fila inferior: pestañas. overflow-x-auto permite deslizar en celular. */}
+      {/* Fila inferior: pestañas */}
       <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
-        {/* Cambiar a pestanasVisibles para produccion */}
         {pestanasVisibles.map((pestana) => {
           const activa = pestana.id === pestanaActiva;
           return (
@@ -100,7 +110,7 @@ export default function Navbar({
               onClick={() => onCambiarPestana(pestana.id)}
               className={`cursor-pointer whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
                 activa
-                  ? "border-indigo-600 text-indigo-600"
+                  ? "border-indigo-600 text-indigo-600 font-semibold"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >

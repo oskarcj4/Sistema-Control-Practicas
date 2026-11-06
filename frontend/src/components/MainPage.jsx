@@ -6,6 +6,7 @@ import { MisPostulaciones } from "./MisPostulaciones";
 import Navbar from "./Navbar";
 import NuevaOfertaForm from "./NuevaOfertaForm";
 import PerfilPage from "./PerfilPage";
+import SolicitudPublicacionForm from "./SolicitudPublicacionForm";
 import TablaUsuarios from "./TablaUsuarios";
 
 // Lista de pestañas del Navbar
@@ -13,6 +14,7 @@ const PESTANAS = [
   { id: "feed", texto: "Feed" },
   { id: "mis-postulaciones", texto: "Mis Postulaciones" },
   { id: "nueva-oferta", texto: "Nueva Oferta" },
+  { id: "solicitud-publicacion", texto: "Solicitud de Publicación" },
   { id: "admin", texto: "Panel de Administración" },
   { id: "perfil", texto: "Mi Perfil" },
 ];
@@ -85,6 +87,10 @@ export default function MainPage() {
 
         {pestanaActiva === "nueva-oferta" && (
           <NuevaOfertaForm onOfertaCreada={() => setPestanaActiva("feed")} />
+        )}
+
+        {pestanaActiva === "solicitud-publicacion" && (
+          <SolicitudPublicacionForm />
         )}
 
         {pestanaActiva === "admin" && <TablaUsuarios />}
