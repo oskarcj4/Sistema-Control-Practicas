@@ -185,22 +185,6 @@ CREATE TABLE notificaciones (
     INDEX idx_notificaciones_usuario (usuario_id, leido)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE sesiones_usuario (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL,
-    refresh_token_hash CHAR(64) NOT NULL,
-    user_agent VARCHAR(255) NULL,
-    direccion_ip VARCHAR(45) NULL,
-    expira_en DATETIME NOT NULL,
-    revocado TINYINT(1) NOT NULL DEFAULT 0,
-    creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
-    CONSTRAINT fk_sesiones_usuario FOREIGN KEY (usuario_id)
-        REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    INDEX idx_sesiones_refresh_token (refresh_token_hash),
-    INDEX idx_sesiones_usuario_id (usuario_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Bitácora que llena api/core/audit-log.php en cada INSERT/UPDATE/DELETE
 CREATE TABLE bitacora (
     id INT AUTO_INCREMENT PRIMARY KEY,
