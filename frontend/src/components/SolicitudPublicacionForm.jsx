@@ -6,6 +6,7 @@ import {
   TEXTO_ESTADO_SOLICITUD,
   formatearFecha,
 } from "../helpers/estilos";
+import BotonConfirmar from "./ui/BotonConfirmar";
 
 export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
   const { usuario } = useContext(AuthContext);
@@ -15,6 +16,8 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [mostrarFormNuevo, setMostrarFormNuevo] = useState(false);
+  // id de la solicitud pendiente que se está editando (null = alta nueva)
+  const [editandoId, setEditandoId] = useState(null);
 
   const datosIniciales = {
     nombre_organizacion_proyecto: "",
@@ -110,26 +113,34 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
     try {
       setEnviando(true);
 
+      // usuario_id no se envía: el backend lo toma de la sesión.
       const payload = {
-        usuario_id: usuario.id,
         nombre_organizacion_proyecto: form.nombre_organizacion_proyecto.trim(),
         descripcion_actividades: form.descripcion_actividades.trim(),
         documento_respaldo_url: form.documento_respaldo_url.trim() || "",
       };
 
-      await apiFetch("solicitudes_publicacion.php", {
-        method: "POST",
-        body: payload,
-      });
-
-      setMensaje({
-        tipo: "ok",
-        texto:
-          "¡Solicitud enviada exitosamente! Se ha notificado al Administrador para su revisión y aprobación.",
-      });
+      if (editandoId) {
+        await apiFetch("solicitudes_publicacion.php", {
+          method: "PUT",
+          body: { ...payload, id: editandoId },
+        });
+        setMensaje({ tipo: "ok", texto: "Solicitud actualizada correctamente." });
+      } else {
+        await apiFetch("solicitudes_publicacion.php", {
+          method: "POST",
+          body: payload,
+        });
+        setMensaje({
+          tipo: "ok",
+          texto:
+            "¡Solicitud enviada exitosamente! Se ha notificado al Administrador para su revisión y aprobación.",
+        });
+      }
 
       setForm(datosIniciales);
       setMostrarFormNuevo(false);
+      setEditandoId(null);
 
       // Recargar solicitud
       const res = await apiFetch(`solicitudes_publicacion.php?usuario_id=${usuario.id}`);
@@ -147,6 +158,32 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
       });
     } finally {
       setEnviando(false);
+    }
+  }
+
+  // Abre el formulario precargado con la solicitud pendiente
+  function iniciarEdicion() {
+    setMensaje(null);
+    setErrores({});
+    setForm({
+      nombre_organizacion_proyecto: solicitudExistente.nombre_organizacion_proyecto || "",
+      descripcion_actividades: solicitudExistente.descripcion_actividades || "",
+      documento_respaldo_url: solicitudExistente.documento_respaldo_url || "",
+    });
+    setEditandoId(solicitudExistente.id);
+    setMostrarFormNuevo(true);
+  }
+
+  // Cancela (borra) la solicitud pendiente
+  async function cancelarSolicitud() {
+    setMensaje(null);
+    try {
+      await apiFetch(`solicitudes_publicacion.php?id=${solicitudExistente.id}`, { method: "DELETE" });
+      setSolicitudExistente(null);
+      setForm(datosIniciales);
+      setMensaje({ tipo: "ok", texto: "Solicitud cancelada. Puedes enviar una nueva cuando quieras." });
+    } catch (err) {
+      setMensaje({ tipo: "error", texto: err.message || "No se pudo cancelar la solicitud." });
     }
   }
 
@@ -259,6 +296,23 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
           </div>
         )}
 
+        {esPendiente && (
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+            <BotonConfirmar
+              texto="Cancelar solicitud"
+              pregunta="¿Cancelar la solicitud?"
+              onConfirmar={cancelarSolicitud}
+            />
+            <button
+              type="button"
+              onClick={iniciarEdicion}
+              className="cursor-pointer rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+            >
+              Editar solicitud
+            </button>
+          </div>
+        )}
+
         {esAprobada && (
           <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-800">
             🎉 ¡Felicidades! Ya estás autorizado para publicar ofertas. Ahora puedes dirigirte a la
@@ -270,7 +324,11 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
           <div className="mt-6 flex justify-end">
             <button
               type="button"
-              onClick={() => setMostrarFormNuevo(true)}
+              onClick={() => {
+                setEditandoId(null);
+                setForm(datosIniciales);
+                setMostrarFormNuevo(true);
+              }}
               className="cursor-pointer rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700"
             >
               Enviar una nueva solicitud
@@ -285,7 +343,9 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
   return (
     <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="border-b border-slate-100 pb-4">
-        <h2 className="text-2xl font-bold text-slate-900">Solicitar Autorización para Publicar</h2>
+        <h2 className="text-2xl font-bold text-slate-900">
+          {editandoId ? "Editar Solicitud" : "Solicitar Autorización para Publicar"}
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
           Envía tu solicitud al administrador para que tu cuenta sea autorizada a publicar ofertas
           de prácticas y proyectos.
@@ -387,10 +447,13 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
           {solicitudExistente && (
             <button
               type="button"
-              onClick={() => setMostrarFormNuevo(false)}
+              onClick={() => {
+                setMostrarFormNuevo(false);
+                setEditandoId(null);
+              }}
               className="cursor-pointer text-xs font-semibold text-slate-500 hover:text-slate-800"
             >
-              ← Ver solicitud anterior
+              {editandoId ? "← Cancelar edición" : "← Ver solicitud anterior"}
             </button>
           )}
           <div className="ml-auto">
@@ -399,7 +462,9 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
               disabled={enviando}
               className="cursor-pointer rounded-xl bg-indigo-600 px-7 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
             >
-              {enviando ? "Enviando solicitud..." : "Enviar Solicitud"}
+              {enviando
+                ? "Enviando solicitud..."
+                : editandoId ? "Guardar cambios" : "Enviar Solicitud"}
             </button>
           </div>
         </div>
