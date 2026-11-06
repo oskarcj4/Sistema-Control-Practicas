@@ -18,13 +18,14 @@ export default function BuscadorUsuarios() {
         setMenuAbierto(false);
       }
     }
-    document.addEventListener("mousedown", handleClickAfuera);
+    document.addEventListener("mousedown", handleClickAfuera); // Si el usuario hace click fuera (mousedown lo detecta) y cierra la busqueda
     return () => document.removeEventListener("mousedown", handleClickAfuera);
   }, []);
 
   // Búsqueda con debounce cuando cambia `query`
   useEffect(() => {
     const termino = query.trim();
+    // Si el termino a buscar mide menos 2 limpia los resultados y cancela la busqueda
     if (termino.length < 2) {
       setResultados([]);
       setBuscando(false);
