@@ -28,15 +28,37 @@ import { AuthContext } from "../context/AuthContext";
  * - fecha_cierre      (fecha YYYY-MM-DD -> obligatoria, debe ser igual o posterior a hoy)
  *
  * creado_por lo extrae el backend automáticamente de la sesión.
+ *
+ * MODO EDICIÓN: si recibe la prop `oportunidad`, precarga sus datos y guarda con
+ * PUT oportunidades.php (id + campos + estado_oportunidad + visto). El backend
+ * solo deja editar al creador de la oferta o a un administrador.
  * -----------------------------------------------------------------------------
  */
 
-export default function NuevaOfertaForm({ onOfertaCreada }) {
+// "2026-11-06 00:00:00" -> "2026-11-06" (los inputs type=date no aceptan la hora)
+function soloFecha(valor) {
+  return valor ? String(valor).slice(0, 10) : "";
+}
+
+export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, onCancelar }) {
+  const esEdicion = Boolean(oportunidad);
   const { usuario } = useContext(AuthContext);
 
   const fechaHoy = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
 
-  const datosIniciales = {
+  const datosIniciales = esEdicion
+    ? {
+        titulo: oportunidad.titulo || "",
+        descripcion: oportunidad.descripcion || "",
+        requisitos: oportunidad.requisitos || "",
+        institucion_id: oportunidad.institucion_id ? String(oportunidad.institucion_id) : "",
+        carrera_id: oportunidad.carrera_id ? String(oportunidad.carrera_id) : "",
+        modalidad: oportunidad.modalidad || "presencial",
+        ubicacion: oportunidad.ubicacion || "",
+        fecha_publicacion: soloFecha(oportunidad.fecha_publicacion),
+        fecha_cierre: soloFecha(oportunidad.fecha_cierre),
+      }
+    : {
     titulo: "",
     descripcion: "",
     requisitos: "",
@@ -184,6 +206,24 @@ export default function NuevaOfertaForm({ onOfertaCreada }) {
         fecha_cierre: form.fecha_cierre,
       };
 
+      if (esEdicion) {
+        await apiFetch("oportunidades.php", {
+          method: "PUT",
+          body: {
+            ...payload,
+            id: oportunidad.id,
+            estado_oportunidad: oportunidad.estado_oportunidad || "activa",
+            visto: Number(oportunidad.visto) === 1 ? 1 : 0,
+          },
+        });
+        setErrores({});
+        setMensaje({ tipo: "ok", texto: "Oferta actualizada correctamente." });
+        if (onOfertaCreada) {
+          onOfertaCreada();
+        }
+        return;
+      }
+
       await apiFetch("oportunidades.php", {
         method: "POST",
         body: payload,
@@ -211,9 +251,13 @@ export default function NuevaOfertaForm({ onOfertaCreada }) {
   return (
     <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="border-b border-slate-100 pb-4">
-        <h2 className="text-2xl font-bold text-slate-900">Publicar Nueva Práctica</h2>
+        <h2 className="text-2xl font-bold text-slate-900">
+          {esEdicion ? "Editar Práctica" : "Publicar Nueva Práctica"}
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Crea una convocatoria para que los estudiantes puedan postularse.
+          {esEdicion
+            ? "Modifica los datos de tu convocatoria."
+            : "Crea una convocatoria para que los estudiantes puedan postularse."}
         </p>
       </div>
 
@@ -434,13 +478,25 @@ export default function NuevaOfertaForm({ onOfertaCreada }) {
         </div>
 
         {/* Botón de Enviar */}
-        <div className="flex justify-end pt-3">
+        <div className="flex justify-end gap-3 pt-3">
+          {onCancelar && (
+            <button
+              type="button"
+              onClick={onCancelar}
+              disabled={enviando}
+              className="cursor-pointer rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          )}
           <button
             type="submit"
             disabled={enviando}
             className="cursor-pointer rounded-xl bg-indigo-600 px-7 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            {enviando ? "Publicando oferta..." : "Publicar Oportunidad"}
+            {enviando
+              ? esEdicion ? "Guardando cambios..." : "Publicando oferta..."
+              : esEdicion ? "Guardar cambios" : "Publicar Oportunidad"}
           </button>
         </div>
       </form>
