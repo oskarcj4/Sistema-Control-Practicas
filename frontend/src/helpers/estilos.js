@@ -81,3 +81,16 @@ export function formatearFecha(fecha) {
   }
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
 }
+
+// ---------- Estado de una oportunidad ----------
+export const COLOR_ESTADO_OPORTUNIDAD = {
+  activa: "bg-emerald-100 text-emerald-700",
+  cerrada: "bg-slate-200 text-slate-700",
+  cancelada: "bg-rose-100 text-rose-700",
+};
+
+export const TEXTO_ESTADO_OPORTUNIDAD = {
+  activa: "Activa",
+  cerrada: "Cerrada",
+  cancelada: "Cancelada",
+};
