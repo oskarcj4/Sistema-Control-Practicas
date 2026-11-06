@@ -31,20 +31,22 @@ export default function Navbar({
   const esAdmin = Boolean(usuario?.isAdmin || roles.includes(ROL_ADMIN));
   const esReclutador = roles.includes(ROL_RECLUTADOR);
   const esEstudiante = roles.includes(ROL_ESTUDIANTE);
+  // autorizado_publicar viene de login.php (se lee de la BD en cada carga de sesión)
+  const puedePublicar = esAdmin || esReclutador || Number(usuario?.autorizado_publicar) === 1;
 
   const pestanasVisibles = pestanas.filter((p) => {
     if (p.id === "admin") {
       return esAdmin;
     }
-    if (p.id === "nueva-oferta") {
-      return esAdmin || esReclutador;
+    if (p.id === "nueva-oferta" || p.id === "mis-ofertas") {
+      return puedePublicar;
     }
     if (p.id === "mis-postulaciones") {
       return esEstudiante;
     }
     if (p.id === "solicitud-publicacion") {
       // Visible para usuarios que no son admin y aún no están autorizados a publicar ofertas
-      return !esAdmin && Number(usuario?.autorizado_publicar) !== 1;
+      return !puedePublicar;
     }
     return true; // "feed", "perfil"
   });

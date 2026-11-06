@@ -2,17 +2,19 @@ import { useContext, useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
 import { AuthContext } from "../context/AuthContext";
 import Feed from "./Feed";
+import MisOfertas from "./MisOfertas";
 import { MisPostulaciones } from "./MisPostulaciones";
 import Navbar from "./Navbar";
 import NuevaOfertaForm from "./NuevaOfertaForm";
 import PerfilPage from "./PerfilPage";
 import SolicitudPublicacionForm from "./SolicitudPublicacionForm";
-import TablaUsuarios from "./TablaUsuarios";
+import PanelAdmin from "./PanelAdmin";
 
 // Lista de pestañas del Navbar
 const PESTANAS = [
   { id: "feed", texto: "Feed" },
   { id: "mis-postulaciones", texto: "Mis Postulaciones" },
+  { id: "mis-ofertas", texto: "Mis Ofertas" },
   { id: "nueva-oferta", texto: "Nueva Oferta" },
   { id: "solicitud-publicacion", texto: "Solicitud de Publicación" },
   { id: "admin", texto: "Panel de Administración" },
@@ -86,14 +88,18 @@ export default function MainPage() {
         {pestanaActiva === "mis-postulaciones" && <MisPostulaciones />}
 
         {pestanaActiva === "nueva-oferta" && (
-          <NuevaOfertaForm onOfertaCreada={() => setPestanaActiva("feed")} />
+          <NuevaOfertaForm onOfertaCreada={() => setPestanaActiva("mis-ofertas")} />
+        )}
+
+        {pestanaActiva === "mis-ofertas" && (
+          <MisOfertas onNuevaOferta={() => setPestanaActiva("nueva-oferta")} />
         )}
 
         {pestanaActiva === "solicitud-publicacion" && (
           <SolicitudPublicacionForm />
         )}
 
-        {pestanaActiva === "admin" && <TablaUsuarios />}
+        {pestanaActiva === "admin" && <PanelAdmin />}
 
         {pestanaActiva === "perfil" && <PerfilPage />}
       </main>
