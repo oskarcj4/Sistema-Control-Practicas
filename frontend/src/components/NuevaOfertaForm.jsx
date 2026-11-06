@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
 import { AuthContext } from "../context/AuthContext";
+import { ROL_ADMIN, obtenerRoles } from "../helpers/estilos";
 
 /**
  * =============================================================================
@@ -43,6 +44,9 @@ function soloFecha(valor) {
 export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, onCancelar }) {
   const esEdicion = Boolean(oportunidad);
   const { usuario } = useContext(AuthContext);
+  const esAdmin = Boolean(usuario?.isAdmin || obtenerRoles(usuario).includes(ROL_ADMIN));
+  // Solo el admin elige institución; reclutadores y autorizados publican siempre con la suya
+  const institucionPropiaId = usuario?.institucion_id ? String(usuario.institucion_id) : "";
 
   const fechaHoy = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
 
@@ -51,7 +55,9 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
         titulo: oportunidad.titulo || "",
         descripcion: oportunidad.descripcion || "",
         requisitos: oportunidad.requisitos || "",
-        institucion_id: oportunidad.institucion_id ? String(oportunidad.institucion_id) : "",
+        institucion_id: esAdmin
+          ? (oportunidad.institucion_id ? String(oportunidad.institucion_id) : "")
+          : institucionPropiaId,
         carrera_id: oportunidad.carrera_id ? String(oportunidad.carrera_id) : "",
         modalidad: oportunidad.modalidad || "presencial",
         ubicacion: oportunidad.ubicacion || "",
@@ -62,7 +68,7 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
     titulo: "",
     descripcion: "",
     requisitos: "",
-    institucion_id: usuario?.institucion_id ? String(usuario.institucion_id) : "",
+    institucion_id: institucionPropiaId,
     carrera_id: "",
     modalidad: "presencial",
     ubicacion: "",
@@ -73,19 +79,16 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
   const [form, setForm] = useState(datosIniciales);
   const [errores, setErrores] = useState({});
   const [carreras, setCarreras] = useState([]);
+  // Admin: todas las instituciones. Resto: solo la suya (instituciones.php?id=X)
   const [instituciones, setInstituciones] = useState([]);
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState(null); // { tipo: "ok" | "error", texto: string }
 
-  // Si el usuario tiene una institución asignada en su perfil, la preseleccionamos
+  // Fuerza la institución propia para quien no es admin (el usuario puede cargar después del primer render)
   useEffect(() => {
-    if (usuario?.institucion_id && !form.institucion_id) {
-      setForm((prev) => ({
-        ...prev,
-        institucion_id: String(usuario.institucion_id),
-      }));
-    }
-  }, [usuario?.institucion_id]);
+    if (esAdmin || !institucionPropiaId) return;
+    setForm((prev) => (prev.institucion_id === institucionPropiaId ? prev : { ...prev, institucion_id: institucionPropiaId }));
+  }, [esAdmin, institucionPropiaId]);
 
   // Carga de catálogos (carreras e instituciones)
   useEffect(() => {
@@ -93,13 +96,21 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
 
     async function cargarCatalogos() {
       try {
+        const rutaInstituciones = esAdmin
+          ? "instituciones.php"
+          : institucionPropiaId
+            ? `instituciones.php?id=${institucionPropiaId}`
+            : null;
+
         const [resCarreras, resInst] = await Promise.all([
           apiFetch("carreras.php", { signal: controller.signal }),
-          apiFetch("instituciones.php", { signal: controller.signal }),
+          rutaInstituciones ? apiFetch(rutaInstituciones, { signal: controller.signal }) : Promise.resolve({ data: [] }),
         ]);
 
         setCarreras(resCarreras.data || []);
-        setInstituciones(resInst.data || []);
+        // ?id= devuelve un objeto; la lista completa devuelve un arreglo
+        const datosInst = resInst.data;
+        setInstituciones(Array.isArray(datosInst) ? datosInst : datosInst ? [datosInst] : []);
       } catch (err) {
         if (err.name === "AbortError") return;
         setMensaje({ tipo: "error", texto: "Error al cargar catálogos: " + err.message });
@@ -108,7 +119,7 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
 
     cargarCatalogos();
     return () => controller.abort();
-  }, []);
+  }, [esAdmin, institucionPropiaId]);
 
   function validar(datos) {
     const e = {};
@@ -122,7 +133,9 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
 
     // 2. Institución
     if (!datos.institucion_id) {
-      e.institucion_id = "Debes seleccionar una institución o empresa";
+      e.institucion_id = esAdmin
+        ? "Debes seleccionar una institución o empresa"
+        : "Tu perfil no tiene institución asignada. Pide a un administrador que te asigne una.";
     }
 
     // 3. Modalidad y Ubicación
@@ -235,7 +248,7 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
       // Vaciamos el formulario restaurando datos iniciales
       setForm({
         ...datosIniciales,
-        institucion_id: usuario?.institucion_id ? String(usuario.institucion_id) : "",
+        institucion_id: esAdmin ? "" : institucionPropiaId,
       });
 
       if (onOfertaCreada) {
@@ -306,13 +319,14 @@ export default function NuevaOfertaForm({ onOfertaCreada, oportunidad = null, on
               required
               value={form.institucion_id}
               onChange={handleChange}
-              className={`mt-1 w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm outline-none transition focus:ring-1 ${
+              disabled={!esAdmin}
+              className={`mt-1 w-full rounded-xl border bg-white px-3.5 disabled:cursor-not-allowed disabled:bg-slate-50 py-2.5 text-sm outline-none transition focus:ring-1 ${
                 errores.institucion_id
                   ? "border-red-400 focus:border-red-500 focus:ring-red-500"
                   : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
               }`}
             >
-              <option value="">Selecciona la institución</option>
+              {esAdmin && <option value="">Selecciona la institución</option>}
               {instituciones.map((inst) => (
                 <option key={inst.id} value={inst.id}>
                   {inst.nombre} {inst.siglas ? `(${inst.siglas})` : ""}
