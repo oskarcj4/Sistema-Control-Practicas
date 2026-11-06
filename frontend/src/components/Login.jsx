@@ -80,7 +80,7 @@ export default function Login({ onCambiarVista, onLoginExitoso }) {
       setTimeout(() => {
         if (login) login(resultado.data);
         if (onLoginExitoso) onLoginExitoso(resultado.data);
-      }, 1800);
+      }, 500);
     } catch (err) {
       setMensaje({ tipo: "error", texto: err.message });
     } finally {

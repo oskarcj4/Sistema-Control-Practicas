@@ -29,6 +29,19 @@ export const TEXTO_ESTADO_POSTULACION = {
   rechazada: "🔴 Rechazada",
 };
 
+// ---------- Estado de una solicitud de publicación ----------
+export const COLOR_ESTADO_SOLICITUD = {
+  pendiente: "bg-amber-100 text-amber-800",
+  aprobada: "bg-emerald-100 text-emerald-800",
+  rechazada: "bg-rose-100 text-rose-800",
+};
+
+export const TEXTO_ESTADO_SOLICITUD = {
+  pendiente: "⏳ Pendiente de revisión",
+  aprobada: "✅ Aprobada",
+  rechazada: "❌ Rechazada",
+};
+
 // ---------- Roles (ids del seed de init.sql) ----------
 export const ROL_ESTUDIANTE = 1;
 export const ROL_ADMIN = 2;

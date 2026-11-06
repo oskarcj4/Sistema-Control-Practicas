@@ -151,7 +151,7 @@ export default function Registro({ onCambiarVista }) {
       setForm(datosIniciales);
       setErrores({});
       setTimeout(() => {
-        onCambiarVista()}, 1800);
+        onCambiarVista()}, 1000);
 
     } catch (err) {
       setMensaje({ tipo: "error", texto: err.message });
