@@ -1,3 +1,4 @@
+import BotonConfirmar from "./ui/BotonConfirmar";
 import {
   COLOR_ESTADO_POSTULACION,
   TEXTO_ESTADO_POSTULACION,
@@ -11,7 +12,10 @@ import {
 //                   (oportunidad, fecha_postulacion, estado_postulacion, cv_url...)
 //   onVerHistorial -> (opcional) función para ver la línea de tiempo (T19).
 //                     Si no la pasas, el botón no aparece.
-export default function PostulacionCard({ postulacion, onVerHistorial }) {
+//   onEditar       -> (opcional) función para editar. Solo se muestra si está pendiente.
+//   onRetirar      -> (opcional) función async para retirar. Solo si está pendiente.
+export default function PostulacionCard({ postulacion, onVerHistorial, onEditar, onRetirar }) {
+  const pendiente = postulacion.estado_postulacion === "pendiente";
   const estado = postulacion.estado_postulacion;
   const colorEstado = COLOR_ESTADO_POSTULACION[estado] || "bg-slate-100 text-slate-700";
   const textoEstado = TEXTO_ESTADO_POSTULACION[estado] || estado;
@@ -47,7 +51,7 @@ export default function PostulacionCard({ postulacion, onVerHistorial }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${colorEstado}`}>
           {textoEstado}
         </span>
@@ -59,6 +63,18 @@ export default function PostulacionCard({ postulacion, onVerHistorial }) {
           >
             Historial
           </button>
+        )}
+        {pendiente && onEditar && (
+          <button
+            type="button"
+            onClick={onEditar}
+            className="cursor-pointer text-sm font-medium text-slate-600 hover:underline"
+          >
+            Editar
+          </button>
+        )}
+        {pendiente && onRetirar && (
+          <BotonConfirmar texto="Retirar" pregunta="¿Retirar postulación?" onConfirmar={onRetirar} />
         )}
       </div>
     </article>

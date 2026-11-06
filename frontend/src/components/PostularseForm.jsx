@@ -3,19 +3,35 @@ import { apiFetch } from "../api/generic-api";
 import { AuthContext } from "../context/AuthContext";
 import { ROL_ESTUDIANTE, obtenerRoles } from "../helpers/estilos";
 
-export default function PostularseForm({ oportunidad, onExito }) {
+// Props:
+//   oportunidad -> oferta a la que se postula (modo alta)
+//   postulacion -> (opcional) postulación pendiente a editar. Si viene, el formulario
+//                  precarga sus datos y envía POST accion=actualizar (archivos opcionales).
+//   onExito     -> función al terminar bien
+export default function PostularseForm({ oportunidad, postulacion = null, onExito }) {
   const { usuario } = useContext(AuthContext);
+  const esEdicion = Boolean(postulacion);
 
   // Estados del formulario según el nuevo contrato del backend (docs/SUBIDA_ARCHIVOS.md)
   const [carreras, setCarreras] = useState([]);
   const [cargandoCarreras, setCargandoCarreras] = useState(true);
 
-  const [form, setForm] = useState({
-    carrera_id: oportunidad?.carrera_id ? String(oportunidad.carrera_id) : "",
-    edad: "",
-    ciclo_universitario: "",
-    mensaje_presentacion: "",
-  });
+  const [form, setForm] = useState(
+    esEdicion
+      ? {
+          carrera_id: postulacion.carrera_id ? String(postulacion.carrera_id) : "",
+          edad: postulacion.edad ? String(postulacion.edad) : "",
+          ciclo_universitario: postulacion.ciclo_universitario ? String(postulacion.ciclo_universitario) : "",
+          mensaje_presentacion: postulacion.mensaje_presentacion || "",
+        }
+      : {
+          carrera_id: oportunidad?.carrera_id ? String(oportunidad.carrera_id) : "",
+          edad: "",
+          ciclo_universitario: "",
+          mensaje_presentacion: "",
+        }
+  );
+  const [quitarConstancia, setQuitarConstancia] = useState(false);
 
   const [archivoCv, setArchivoCv] = useState(null);
   const [archivoConstancia, setArchivoConstancia] = useState(null);
@@ -29,7 +45,6 @@ export default function PostularseForm({ oportunidad, onExito }) {
 
     async function cargarCarreras() {
       try {
-        console.log(usuario);
         const res = await apiFetch(`carreras.php?institucion_id=${usuario.institucion_id}`, { signal: controller.signal });
         setCarreras(res.data || []);
       } catch (err) {
@@ -70,19 +85,19 @@ export default function PostularseForm({ oportunidad, onExito }) {
     e.preventDefault();
     setMensaje(null);
 
-    // Validaciones en el cliente
-    if (!archivoCv) {
+    // Validaciones en el cliente (en edición el CV es opcional: si no se manda, se conserva)
+    if (!archivoCv && !esEdicion) {
       setMensaje({ tipo: "error", texto: "Debes seleccionar tu archivo de CV en formato PDF." });
       return;
     }
 
-    if (archivoCv.type !== "application/pdf") {
+    if (archivoCv && archivoCv.type !== "application/pdf") {
       setMensaje({ tipo: "error", texto: "El CV debe ser estrictamente un archivo PDF." });
       return;
     }
 
     const LIMITE_MB = 5 * 1024 * 1024; // 5 MB
-    if (archivoCv.size > LIMITE_MB) {
+    if (archivoCv && archivoCv.size > LIMITE_MB) {
       setMensaje({ tipo: "error", texto: "El archivo del CV no debe superar los 5 MB." });
       return;
     }
@@ -93,9 +108,17 @@ export default function PostularseForm({ oportunidad, onExito }) {
     }
 
     // Construcción del FormData (multipart/form-data)
+    // estudiante_id no se envía: el backend lo toma de la sesión.
     const fd = new FormData();
-    fd.append("oportunidad_id", String(oportunidad.id));
-    fd.append("estudiante_id", String(usuario.id));
+    if (esEdicion) {
+      fd.append("accion", "actualizar");
+      fd.append("id", String(postulacion.id));
+      if (quitarConstancia && !archivoConstancia) {
+        fd.append("quitar_constancia", "1");
+      }
+    } else {
+      fd.append("oportunidad_id", String(oportunidad.id));
+    }
     fd.append("carrera_id", String(form.carrera_id));
     fd.append("edad", String(form.edad));
     fd.append("ciclo_universitario", String(form.ciclo_universitario));
@@ -104,7 +127,9 @@ export default function PostularseForm({ oportunidad, onExito }) {
       fd.append("mensaje_presentacion", form.mensaje_presentacion.trim());
     }
 
-    fd.append("cv", archivoCv);
+    if (archivoCv) {
+      fd.append("cv", archivoCv);
+    }
 
     if (archivoConstancia) {
       fd.append("constancia_estudios", archivoConstancia);
@@ -120,7 +145,9 @@ export default function PostularseForm({ oportunidad, onExito }) {
 
       setMensaje({
         tipo: "ok",
-        texto: "¡Postulación enviada con éxito! Tus documentos han sido guardados.",
+        texto: esEdicion
+          ? "Postulación actualizada correctamente."
+          : "¡Postulación enviada con éxito! Tus documentos han sido guardados.",
       });
 
       if (onExito) {
@@ -141,7 +168,9 @@ export default function PostularseForm({ oportunidad, onExito }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="border-b border-slate-100 pb-3">
-        <h3 className="text-lg font-bold text-slate-800">Postularme a esta práctica</h3>
+        <h3 className="text-lg font-bold text-slate-800">
+          {esEdicion ? "Editar mi postulación" : "Postularme a esta práctica"}
+        </h3>
         <p className="text-xs text-slate-500">
           Completa tus datos académicos y adjunta tus documentos requeridos.
         </p>
@@ -223,15 +252,16 @@ export default function PostularseForm({ oportunidad, onExito }) {
       {/* Subida de Archivo: CV (PDF obligatorio) */}
       <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
         <label className="block text-xs font-bold uppercase text-slate-700">
-          📄 Currículum Vitae (CV) <span className="text-red-500">*</span>
+          📄 Currículum Vitae (CV) {!esEdicion && <span className="text-red-500">*</span>}
         </label>
         <p className="mt-0.5 text-xs text-slate-500">
           Solo formato <strong>PDF</strong>. Tamaño máximo: 5 MB.
+          {esEdicion && " Déjalo vacío para conservar el CV actual."}
         </p>
         <input
           type="file"
           accept="application/pdf"
-          required
+          required={!esEdicion}
           onChange={(e) => setArchivoCv(e.target.files[0] || null)}
           className="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white file:hover:bg-indigo-700"
         />
@@ -261,6 +291,16 @@ export default function PostularseForm({ oportunidad, onExito }) {
             ✓ Archivo seleccionado: {archivoConstancia.name} ({(archivoConstancia.size / 1024 / 1024).toFixed(2)} MB)
           </p>
         )}
+        {esEdicion && postulacion.constancia_estudios_url && !archivoConstancia && (
+          <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={quitarConstancia}
+              onChange={(e) => setQuitarConstancia(e.target.checked)}
+            />
+            Quitar la constancia actual
+          </label>
+        )}
       </div>
 
       {/* Mensaje de Presentación */}
@@ -286,7 +326,9 @@ export default function PostularseForm({ oportunidad, onExito }) {
           disabled={enviando}
           className="cursor-pointer rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {enviando ? "Subiendo archivos y enviando..." : "Enviar Postulación"}
+          {enviando
+            ? "Subiendo archivos y enviando..."
+            : esEdicion ? "Guardar cambios" : "Enviar Postulación"}
         </button>
       </div>
     </form>

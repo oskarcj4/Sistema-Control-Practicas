@@ -12,8 +12,9 @@ import {
 //   onAceptar   -> (opcional) función(postulacion) para el botón Aceptar   (T13)
 //   onRechazar  -> (opcional) función(postulacion) para el botón Rechazar  (T13)
 //   Si no pasas onAceptar / onRechazar, la columna de acciones no aparece.
-export default function TablaPostulantes({ postulantes, onAceptar, onRechazar }) {
-  const mostrarAcciones = Boolean(onAceptar || onRechazar);
+//   onVerHistorial -> (opcional) función(postulacion) para ver la línea de tiempo
+export default function TablaPostulantes({ postulantes, onAceptar, onRechazar, onVerHistorial }) {
+  const mostrarAcciones = Boolean(onAceptar || onRechazar || onVerHistorial);
 
   return (
     // overflow-x-auto: en celular la tabla se puede deslizar de lado sin romper la página
@@ -79,7 +80,16 @@ export default function TablaPostulantes({ postulantes, onAceptar, onRechazar })
 
               {mostrarAcciones && (
                 <td className="px-4 py-3">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {onVerHistorial && (
+                      <button
+                        type="button"
+                        onClick={() => onVerHistorial(p)}
+                        className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Historial
+                      </button>
+                    )}
                     {onAceptar && (
                       <button
                         type="button"
