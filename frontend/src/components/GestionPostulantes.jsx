@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
+import HistorialModal from "./HistorialModal";
 import TablaPostulantes from "./TablaPostulantes";
 
-export default function GestionPostulantes({ oportunidad, usuario }) {
+export default function GestionPostulantes({ oportunidad }) {
   const [postulantes, setPostulantes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -12,6 +13,7 @@ export default function GestionPostulantes({ oportunidad, usuario }) {
   const [postulacionAccion, setPostulacionAccion] = useState(null); // { postulacion, nuevoEstado: 'aceptada' | 'rechazada' }
   const [comentario, setComentario] = useState("");
   const [procesando, setProcesando] = useState(false);
+  const [historialDe, setHistorialDe] = useState(null);
 
   async function cargarPostulantes() {
     try {
@@ -49,7 +51,8 @@ export default function GestionPostulantes({ oportunidad, usuario }) {
       setProcesando(true);
       const { postulacion, nuevoEstado } = postulacionAccion;
 
-      // 1. Cambiar estado en postulaciones.php
+      // Cambia el estado. El backend guarda el historial y notifica al estudiante
+      // (actualizado_por sale de la sesión).
       await apiFetch("postulaciones.php", {
         method: "PUT",
         body: {
@@ -57,20 +60,6 @@ export default function GestionPostulantes({ oportunidad, usuario }) {
           id: postulacion.id,
           estado_postulacion: nuevoEstado,
           comentario: comentario.trim(),
-          actualizado_por: usuario.id,
-        },
-      });
-
-      // 2. Enviar notificación al estudiante
-      await apiFetch("notificaciones.php", {
-        method: "POST",
-        body: {
-          usuario_id: postulacion.estudiante_id,
-          titulo:
-            nuevoEstado === "aceptada"
-              ? "🎉 ¡Postulación Aceptada!"
-              : "Actualización de tu postulación",
-          mensaje: comentario.trim() || `Tu postulación para "${oportunidad.titulo}" fue ${nuevoEstado}.`,
         },
       });
 
@@ -181,7 +170,12 @@ export default function GestionPostulantes({ oportunidad, usuario }) {
           postulantes={postulantes}
           onAceptar={(p) => handleIniciarAccion(p, "aceptada")}
           onRechazar={(p) => handleIniciarAccion(p, "rechazada")}
+          onVerHistorial={(p) => setHistorialDe(p)}
         />
+      )}
+
+      {historialDe && (
+        <HistorialModal postulacion={historialDe} onCerrar={() => setHistorialDe(null)} />
       )}
     </div>
   );
