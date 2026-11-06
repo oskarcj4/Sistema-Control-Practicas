@@ -27,11 +27,13 @@ if ($method !== 'POST') {
 $data = readJsonInput($method);
 
 # Un usuario normal solo puede ver/editar su propio registro; el admin puede todo.
+# Búsqueda por término (lupa) está permitida para cualquier usuario autenticado.
 if ($auth_data !== null) {
-    $esAdmin  = boolval($auth_data['isAdmin']);
-    $propioId = (int)$auth_data['id'];
+    $esAdmin    = boolval($auth_data['isAdmin']);
+    $propioId   = (int)$auth_data['id'];
+    $esBusqueda = isset($_GET['q']) || isset($_GET['buscar']);
 
-    if ($method === 'GET' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId) {
+    if ($method === 'GET' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId && !$esBusqueda) {
         Response::invalidAccess();
     }
     if ($method === 'PUT' && !$esAdmin) {
@@ -51,11 +53,14 @@ try {
 
     switch ($method) {
         case 'GET':
-            $id     = (int)($_GET['id'] ?? 0);
-            $email  = trim($_GET['email'] ?? '');
-            $rol_id = (int)($_GET['rol_id'] ?? 0);
+            $id      = (int)($_GET['id'] ?? 0);
+            $email   = trim($_GET['email'] ?? '');
+            $rol_id  = (int)($_GET['rol_id'] ?? 0);
+            $termino = trim($_GET['q'] ?? $_GET['buscar'] ?? '');
 
-            if ($id > 0) {
+            if ($termino !== '') {
+                $usuario->search($termino);
+            } elseif ($id > 0) {
                 $usuario->findById($id);
             } elseif ($email !== '') {
                 $usuario->findByEmail($email);

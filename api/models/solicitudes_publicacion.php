@@ -119,7 +119,7 @@ class SolicitudesPublicacion {
         }
 
         try {
-            $stmt = $this->connection->prepare("SELECT autorizado_publicar FROM usuarios WHERE id = ? AND estado = 1 AND estado_cuenta = 'activo'");
+            $stmt = $this->connection->prepare("SELECT nombre, apellido, username, autorizado_publicar FROM usuarios WHERE id = ? AND estado = 1 AND estado_cuenta = 'activo'");
             $stmt->execute([$usuario_id]);
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -144,6 +144,31 @@ class SolicitudesPublicacion {
 
             if ($stmt->rowCount() === 0) {
                 $this->response->error("No se pudo registrar la solicitud", -1, 500);
+            }
+
+            # Notificar a los administradores activos del sistema
+            try {
+                $stmtAdmin = $this->connection->prepare("SELECT ar.id_usuario FROM asignaciones_roles ar
+                                                         INNER JOIN roles r ON r.id = ar.id_rol
+                                                         WHERE r.nombre = 'administrador' AND ar.estado = 1");
+                $stmtAdmin->execute();
+                $admins = $stmtAdmin->fetchAll(PDO::FETCH_ASSOC);
+
+                $nombreSolicitante = trim(($usuario['nombre'] ?? '') . ' ' . ($usuario['apellido'] ?? ''));
+                if ($nombreSolicitante === '') {
+                    $nombreSolicitante = $usuario['username'] ?? 'Un usuario';
+                }
+
+                $stmtNotif = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
+                foreach ($admins as $admin) {
+                    $stmtNotif->execute([
+                        (int)$admin['id_usuario'],
+                        "Nueva solicitud de publicación",
+                        "{$nombreSolicitante} ha enviado una solicitud para publicar prácticas en '{$data['nombre_organizacion_proyecto']}'."
+                    ]);
+                }
+            } catch (\Throwable $th) {
+                // Notificación a administradores es accesoria, no bloquea la respuesta
             }
 
             $this->response->success("Solicitud registrada con éxito");

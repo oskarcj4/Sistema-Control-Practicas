@@ -107,6 +107,29 @@ class Usuarios {
         }
     }
 
+    # Búsqueda de usuarios por nombre, apellido, username o email
+    public function search(string $termino){
+        $termino = trim($termino);
+        if ($termino === '') {
+            $this->response->success([]);
+            return;
+        }
+        try {
+            $like = '%' . $termino . '%';
+            $stmt = $this->connection->prepare(self::SELECT_USUARIO . "
+                            WHERE u.estado = 1 AND u.estado_cuenta = 'activo' AND (
+                                u.nombre LIKE ? OR u.apellido LIKE ? OR u.username LIKE ? OR u.email LIKE ?
+                            )
+                            ORDER BY u.nombre, u.apellido LIMIT 15");
+            $stmt->execute([$like, $like, $like, $like]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $this->response->success($result);
+        } catch (PDOException $e) {
+            Response::error("Error", -1, 500);
+            //Response::debugError($e);
+        }
+    }
+
     # Crear usuario (registro público): siempre entra como estudiante.
     # Otros roles los asigna un administrador desde asignaciones_roles.
     public function add(array $arrayData) {

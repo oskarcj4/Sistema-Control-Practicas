@@ -9,7 +9,7 @@ class Carreras {
     }
     public function findAll(){
         try {
-            $stmt = $this->connection->prepare("SELECT c.nombre FROM carreras c ORDER BY c.nombre");
+            $stmt = $this->connection->prepare("SELECT c.id, c.nombre, c.codigo, c.institucion_id FROM carreras c WHERE c.estado = 1 ORDER BY c.nombre");
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $this->response->success($result);
