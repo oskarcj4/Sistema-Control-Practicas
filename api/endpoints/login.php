@@ -34,12 +34,13 @@ try {
             }
 
             Response::success([
-                'id'        => $auth_data['id'],
-                'username'  => $auth_data['username'],
-                'name'      => $auth_data['name'],
-                'roles'     => $auth_data['roles'],
-                'isAdmin'   => $auth_data['isAdmin'],
-                'csrfToken' => csrfToken()
+                'id'             => $auth_data['id'],
+                'username'       => $auth_data['username'],
+                'name'           => $auth_data['name'],
+                'institucion_id' => $auth_data['institucion_id'],
+                'roles'          => $auth_data['roles'],
+                'isAdmin'        => $auth_data['isAdmin'],
+                'csrfToken'      => csrfToken()
             ]);
             break;
 

@@ -29,7 +29,7 @@ class Login {
 
         try {
             # Los roles viven solo en asignaciones_roles (usuarios no tiene rol_id)
-            $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash,
+            $query = "SELECT u.id, u.username, u.nombre, u.apellido, u.password_hash, u.institucion_id,
                              (SELECT GROUP_CONCAT(ar.id_rol ORDER BY ar.id_rol)
                                 FROM asignaciones_roles ar
                                WHERE ar.id_usuario = u.id AND ar.estado = 1) AS roles
@@ -52,6 +52,7 @@ class Login {
                 'id'       => (int)$result['id'],
                 'username' => $result['username'],
                 'name'     => $result['nombre'] . ' ' . $result['apellido'],
+                'institucion_id' => $result['institucion_id'],
                 'roles'    => implode(',', $roles),
                 'isAdmin'  => in_array(self::ROL_ADMIN, $roles, true),
                 'exp'      => time() + (int)COOKIE_LIFETIME,
@@ -80,6 +81,7 @@ class Login {
                 'name'      => $payload['name'],
                 'roles'     => $payload['roles'],
                 'isAdmin'   => $payload['isAdmin'],
+                'institucion_id' => $payload['institucion_id'],
                 'csrfToken' => csrfToken()
             ], "Logueado exitosamente");
         } catch (PDOException $e) {
