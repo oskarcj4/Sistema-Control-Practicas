@@ -264,7 +264,7 @@ export default function Feed() {
           return (
             <div key={op.id} className="relative">
               {esPropia && (
-                <div className="absolute right-4 top-4 z-10">
+                <div className="absolute right-25 top-6 z-10">
                   <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
                     Tu publicación
                   </span>
@@ -285,17 +285,15 @@ export default function Feed() {
           oportunidad={oportunidadSeleccionada}
           onCerrar={() => setOportunidadSeleccionada(null)}
         >
-          {esEstudiante ? (
+          {/* Postulantes: solo el creador de la oferta o un admin (el backend también lo exige) */}
+          {esAdmin || Number(oportunidadSeleccionada.creado_por) === Number(usuario?.id) ? (
+            <GestionPostulantes oportunidad={oportunidadSeleccionada} />
+          ) : esEstudiante ? (
             <PostularseForm
               oportunidad={oportunidadSeleccionada}
               onExito={() => setOportunidadSeleccionada(null)}
             />
-          ) : (
-            <GestionPostulantes
-              oportunidad={oportunidadSeleccionada}
-              usuario={usuario}
-            />
-          )}
+          ) : null}
         </DetalleModal>
       )}
     </div>
