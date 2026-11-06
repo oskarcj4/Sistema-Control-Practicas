@@ -6,7 +6,7 @@ export const AuthContext = createContext();
 // Contexto Global para manejar el login
 
 export default function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -14,10 +14,10 @@ export default function AuthProvider({ children }) {
 
     apiFetch("login.php", { signal: controlador.signal })
       .then((res) => {
-        setUser(res.data);
+        setUsuario(res.data);
       })
       .catch(() => {
-        setUser(null);
+        setUsuario(null);
       })
       .finally(() => {
         if (!controlador.signal.aborted) {
@@ -29,7 +29,7 @@ export default function AuthProvider({ children }) {
   }, []);
 
   async function login(datosUsuario) {
-    setUser(datosUsuario);
+    setUsuario(datosUsuario);
   }
 
   async function logout() {
@@ -39,14 +39,13 @@ export default function AuthProvider({ children }) {
       // Si la sesión ya expiró en PHP, ignoramos el fallo
     }
     setCsrfToken(null);
-    setUser(null);
+    setUsuario(null);
   }
 
   const valor = {
-    user,
-    usuario: user,
+    usuario,
     cargando,
-    autenticado: Boolean(user),
+    autenticado: Boolean(usuario),
     login,
     logout,
   };

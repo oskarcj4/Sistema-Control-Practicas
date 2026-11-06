@@ -23,16 +23,28 @@ export default function PostulacionCard({ postulacion, onVerHistorial }) {
         <p className="text-sm text-slate-500">
           Postulado el {formatearFecha(postulacion.fecha_postulacion)}
         </p>
-        {postulacion.cv_url && (
-          <a
-            href={postulacion.cv_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-indigo-600 hover:underline"
-          >
-            Ver CV enviado
-          </a>
-        )}
+        <div className="mt-1 flex flex-wrap gap-3 text-sm">
+          {postulacion.cv_url && (
+            <a
+              href={postulacion.cv_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-indigo-600 hover:underline"
+            >
+              📄 Ver CV
+            </a>
+          )}
+          {postulacion.constancia_estudios_url && (
+            <a
+              href={postulacion.constancia_estudios_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-indigo-600 hover:underline"
+            >
+              🎓 Ver Constancia
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
