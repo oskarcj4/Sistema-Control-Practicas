@@ -4,6 +4,7 @@ require_once __DIR__ . "/../models/oportunidades.php";
 require_once __DIR__ . "/../core/connection.php";
 require_once __DIR__ . "/../core/auth-middleware.php";
 require_once __DIR__ . "/../core/request.php";
+require_once __DIR__ . "/../core/permisos.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -61,6 +62,8 @@ try {
             break;
 
         case 'PUT':
+            # Solo el creador de la oferta o un admin
+            exigirPermiso(esAdmin($auth_data) || creadorOportunidad($connection, (int)inputString($data, 'id', '0')) === (int)$auth_data['id']);
             $oportunidad->update([
                 'id'                 => inputString($data, 'id'),
                 'titulo'             => inputString($data, 'titulo'),
@@ -78,7 +81,9 @@ try {
             break;
 
         case 'DELETE':
-            $oportunidad->delete((int)($_GET['id'] ?? 0));
+            $id = (int)($_GET['id'] ?? 0);
+            exigirPermiso(esAdmin($auth_data) || creadorOportunidad($connection, $id) === (int)$auth_data['id']);
+            $oportunidad->delete($id);
             break;
 
         default:

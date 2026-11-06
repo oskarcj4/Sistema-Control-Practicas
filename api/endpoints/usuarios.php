@@ -59,7 +59,7 @@ try {
             $termino = trim($_GET['q'] ?? $_GET['buscar'] ?? '');
 
             if ($termino !== '') {
-                $usuario->search($termino);
+                $usuario->search($termino, $esAdmin);
             } elseif ($id > 0) {
                 $usuario->findById($id);
             } elseif ($email !== '') {

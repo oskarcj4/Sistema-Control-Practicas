@@ -33,6 +33,7 @@ try {
                 Response::error("Usuario no autenticado", -2);
             }
 
+            $login = new Login($connection, $response);
             Response::success([
                 'id'             => $auth_data['id'],
                 'username'       => $auth_data['username'],
@@ -40,6 +41,7 @@ try {
                 'institucion_id' => $auth_data['institucion_id'],
                 'roles'          => $auth_data['roles'],
                 'isAdmin'        => $auth_data['isAdmin'],
+                'autorizado_publicar' => $login->autorizadoPublicar((int)$auth_data['id']),
                 'csrfToken'      => csrfToken()
             ]);
             break;

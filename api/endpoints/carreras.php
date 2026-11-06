@@ -3,6 +3,8 @@
 require_once __DIR__ . "/../models/carreras.php";
 require_once __DIR__ . "/../core/connection.php";
 require_once __DIR__ . "/../core/request.php";
+require_once __DIR__ . "/../core/auth-middleware.php";
+require_once __DIR__ . "/../core/permisos.php";
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
@@ -12,6 +14,12 @@ header("Content-Type: application/json");
 $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
+
+# GET es público (el formulario de registro lo usa sin sesión).
+# POST/PUT/DELETE: solo administrador, con CSRF.
+if ($method !== 'GET') {
+    requireAuth([ROL_ADMIN]);
+}
 
 # POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
 $data = readJsonInput($method);

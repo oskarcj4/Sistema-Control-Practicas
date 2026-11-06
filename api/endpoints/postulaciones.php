@@ -3,6 +3,8 @@
 require_once __DIR__ . "/../models/postulaciones.php";
 require_once __DIR__ . "/../core/connection.php";
 require_once __DIR__ . "/../core/request.php";
+require_once __DIR__ . "/../core/auth-middleware.php";
+require_once __DIR__ . "/../core/permisos.php";
 require_once __DIR__ . "/../core/upload.php";
 require_once __DIR__ . "/../core/storage.php";
 
@@ -35,6 +37,17 @@ $connection = Connection::load();
 $response   = new Response();
 $method     = $_SERVER["REQUEST_METHOD"];
 
+# Sesión obligatoria antes de leer el cuerpo (y CSRF en escritura).
+$auth   = requireAuth();
+$propio = (int)$auth['id'];
+
+/** El estudiante dueño de la postulación (o un admin) puede editarla o retirarla. */
+function exigirEstudianteDueno(Connection $connection, array $auth, int $postulacion_id): void
+{
+    $duenos = duenosPostulacion($connection, $postulacion_id);
+    exigirPermiso(esAdmin($auth) || $duenos['estudiante_id'] === (int)$auth['id']);
+}
+
 # POST lleva formulario + archivos => multipart/form-data.
 # PUT/QUERY siguen siendo JSON (cambio de estado y edición de datos sin archivos).
 if ($method === 'POST') {
@@ -63,12 +76,18 @@ try {
             $oportunidad_id = (int)($_GET['oportunidad_id'] ?? 0);
 
             if ($id > 0) {
+                # Admin, el estudiante dueño o el creador de la oferta
+                $duenos = duenosPostulacion($connection, $id);
+                exigirPermiso(esAdmin($auth) || in_array($propio, $duenos, true));
                 $postulacion->findById($id);
             } elseif ($estudiante_id > 0) {
+                exigirPermiso(esAdmin($auth) || $estudiante_id === $propio);
                 $postulacion->findByEstudiante($estudiante_id);
             } elseif ($oportunidad_id > 0) {
+                exigirPermiso(esAdmin($auth) || creadorOportunidad($connection, $oportunidad_id) === $propio);
                 $postulacion->findByOportunidad($oportunidad_id);
             } else {
+                exigirAdmin($auth);
                 $postulacion->findAll();
             }
             break;
@@ -77,6 +96,7 @@ try {
             if (inputString($data, 'accion') === 'actualizar') {
                 # ---- Editar una postulación pendiente (datos y/o archivos) ----
                 $id     = (int)inputString($data, 'id');
+                exigirEstudianteDueno($connection, $auth, $id);
                 $actual = $postulacion->buscarEditable($id);
 
                 # 1. Validar todo antes de subir nada
@@ -106,7 +126,7 @@ try {
             } else {
                 # ---- Nueva postulación ----
                 $oportunidad_id = (int)inputString($data, 'oportunidad_id');
-                $estudiante_id  = (int)inputString($data, 'estudiante_id');
+                $estudiante_id  = $propio; # sale de la cookie, no del cuerpo
 
                 # 1. Validar formulario, archivos y reglas de negocio antes de subir nada
                 $formulario = $postulacion->validarFormulario($data);
@@ -133,14 +153,18 @@ try {
             # accion=estado -> el reclutador cambia el estado (queda en historial)
             # sin accion    -> el estudiante edita los datos del formulario (sin archivos; para archivos usar POST accion=actualizar)
             if (inputString($data, 'accion') === 'estado') {
+                # Solo el creador de la oferta (o un admin) cambia el estado
+                $duenos = duenosPostulacion($connection, (int)inputString($data, 'id', '0'));
+                exigirPermiso(esAdmin($auth) || $duenos['creado_por'] === $propio);
                 $postulacion->changeState([
                     'id'                 => inputString($data, 'id'),
                     'estado_postulacion' => inputString($data, 'estado_postulacion'),
                     'comentario'         => inputString($data, 'comentario'),
-                    'actualizado_por'    => inputString($data, 'actualizado_por')
+                    'actualizado_por'    => (string)$propio # sale de la cookie
                 ]);
             } else {
                 $id         = (int)inputString($data, 'id');
+                exigirEstudianteDueno($connection, $auth, $id);
                 $actual     = $postulacion->buscarEditable($id);
                 $formulario = $postulacion->validarFormulario($data, $actual);
                 $postulacion->actualizar($id, $formulario, [
@@ -151,7 +175,9 @@ try {
             break;
 
         case 'DELETE':
-            $postulacion->delete((int)($_GET['id'] ?? 0));
+            $id = (int)($_GET['id'] ?? 0);
+            exigirEstudianteDueno($connection, $auth, $id);
+            $postulacion->delete($id);
             break;
 
         default:
