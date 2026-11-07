@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import AvisosMasivos from "./AvisosMasivos";
+import Bitacora from "./Bitacora";
+import InicioAdmin from "./InicioAdmin";
 import { apiFetch } from "../api/generic-api";
 import BuzonSolicitudes from "./BuzonSolicitudes";
 import CrudCatalogo from "./CrudCatalogo";
@@ -8,12 +11,15 @@ import TablaUsuarios from "./TablaUsuarios";
 // Panel de administración con sub-secciones.
 // Para agregar una sección nueva, agrega una entrada a SECCIONES y su render abajo.
 const SECCIONES = [
+  { id: "inicio", texto: "Inicio" },
   { id: "solicitudes", texto: "Solicitudes de publicación" },
   { id: "usuarios", texto: "Usuarios" },
   { id: "permisos", texto: "Permisos de publicación" },
   { id: "instituciones", texto: "Instituciones" },
   { id: "carreras", texto: "Carreras" },
   { id: "roles", texto: "Roles" },
+  { id: "avisos", texto: "Avisos masivos" },
+  { id: "bitacora", texto: "Bitácora" },
 ];
 
 const TIPOS_INSTITUCION = [
@@ -23,8 +29,12 @@ const TIPOS_INSTITUCION = [
   { valor: "otra", texto: "Otra" },
 ];
 
-export default function PanelAdmin() {
-  const [seccion, setSeccion] = useState("solicitudes");
+// Props:
+//   seccion          -> id de la sección (sale de la URL #/admin/<seccion>); vacío = inicio
+//   onCambiarSeccion -> función(id) que cambia la URL
+export default function PanelAdmin({ seccion: seccionRuta, onCambiarSeccion }) {
+  const seccion = SECCIONES.some((s) => s.id === seccionRuta) ? seccionRuta : "inicio";
+  const setSeccion = onCambiarSeccion;
   const [instituciones, setInstituciones] = useState([]);
 
   // Las carreras necesitan la lista de instituciones para el select y para mostrar el nombre
@@ -59,7 +69,13 @@ export default function PanelAdmin() {
         ))}
       </div>
 
+      {seccion === "inicio" && <InicioAdmin />}
+
       {seccion === "solicitudes" && <BuzonSolicitudes />}
+
+      {seccion === "avisos" && <AvisosMasivos />}
+
+      {seccion === "bitacora" && <Bitacora />}
 
       {seccion === "usuarios" && <TablaUsuarios />}
 

@@ -10,6 +10,7 @@ import HistorialTimeline from "./HistorialTimeline";
 import EstadoVacio from "./ui/EstadoVacio";
 import MensajeError from "./ui/MensajeError";
 import Spinner from "./ui/Spinner";
+import { irA } from "../helpers/rutas";
 
 // Ventana grande para gestionar los postulantes de UNA oferta (Mis Ofertas).
 // Izquierda: lista de postulantes con búsqueda y filtro por estado.
@@ -321,6 +322,13 @@ export default function PostulantesVentana({ oportunidad, onCerrar }) {
                     <a href={`mailto:${seleccionada.email}`} className="text-sm text-indigo-600 hover:underline">
                       {seleccionada.email}
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => irA(`#/usuario/${seleccionada.estudiante_id}`)}
+                      className="ml-3 cursor-pointer text-sm font-medium text-indigo-600 hover:underline"
+                    >
+                      Ver perfil →
+                    </button>
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${

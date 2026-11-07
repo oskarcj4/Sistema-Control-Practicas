@@ -12,15 +12,16 @@ import Spinner from "./ui/Spinner";
 //
 // Props:
 //   usuarios           -> arreglo de GET usuarios.php
-//   onCambiarEstado    -> (opcional) función(usuario) para el botón Suspender/Reactivar
-//   onGestionarRoles   -> (opcional) función(usuario) para abrir el modal de roles (T14)
-export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
+// El botón "Roles" abre AsignarRolModal; al cambiar un rol se recarga la tabla.
+export default function TablaUsuarios() {
   const [cargando, setCargando] = useState(true);
   const [usuarios, setUsuarios] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
   const [usuarioParaRoles, setUsuarioParaRoles] = useState(null);
   const [filtroRol, setFiltroRol] = useState(""); // "" = todos; si no, id de rol
   const [mensaje, setMensaje] = useState(null); // { tipo, texto }
+  // Se incrementa para volver a pedir la lista (por ejemplo tras cambiar roles)
+  const [recarga, setRecarga] = useState(0);
 
   // GET usuarios.php (todos) o usuarios.php?rol_id=X (filtrado en el servidor)
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
 
     cargarUsuarios();
     return () => controller.abort();
-  }, [filtroRol]);
+  }, [filtroRol, recarga]);
 
   // Borrado lógico del usuario (DELETE usuarios.php?id=X)
   async function handleEliminar(u) {
@@ -180,15 +181,13 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
 
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    {onGestionarRoles && (
-                      <button
-                        type="button"
-                        onClick={() => onGestionarRoles(u)}
-                        className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Roles
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setUsuarioParaRoles(u)}
+                      className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Roles
+                    </button>
                       <button
                         type="button"
                         onClick={() => handleCambiarEstado(u)}
@@ -213,13 +212,13 @@ export default function TablaUsuarios({onCambiarEstado, onGestionarRoles }) {
     </div>
     )}
 
-      { usuarioParaRoles && (
+      {usuarioParaRoles && (
         <AsignarRolModal
-        usuario={usuarioParaRoles}
-        onCerrar={() => setUsuarioParaRoles(null)}
+          usuario={usuarioParaRoles}
+          onCerrar={() => setUsuarioParaRoles(null)}
+          onCambio={() => setRecarga((n) => n + 1)}
         />
-      )
-      }
+      )}
 
     </div>
   );

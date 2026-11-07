@@ -62,6 +62,11 @@ export default function OportunidadCard({ oportunidad, onVerMas }) {
         <span className="text-xs font-medium text-slate-500">
           📅 Cierre: {formatearFecha(oportunidad.fecha_cierre)}
         </span>
+        {oportunidad.mi_postulacion && (
+          <span className="ml-auto mr-3 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+            ✓ Ya postulado
+          </span>
+        )}
         <button
           type="button"
           onClick={onVerMas}

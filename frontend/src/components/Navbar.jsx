@@ -68,9 +68,11 @@ export default function Navbar({
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         {/* Logo */}
         <div className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white shadow-sm">
-            SP
-          </span>
+        <img
+          src="./../../public/anchor-svgrepo-com.svg"
+          alt="Logo de Sistema de Prácticas"
+          className="h-7 w-7 m-2 object-contain"
+        />
           <span className="hidden text-lg font-bold text-slate-800 lg:block">
             Sistema de Prácticas
           </span>

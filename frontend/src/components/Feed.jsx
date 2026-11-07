@@ -3,14 +3,12 @@ import { apiFetch } from "../api/generic-api";
 import { AuthContext } from "../context/AuthContext";
 import {
   ROL_ADMIN,
-  ROL_ESTUDIANTE,
   ROL_RECLUTADOR,
   obtenerRoles,
 } from "../helpers/estilos";
+import AccionesOferta from "./AccionesOferta";
 import DetalleModal from "./DetalleModal";
-import GestionPostulantes from "./GestionPostulantes";
 import OportunidadCard from "./OportunidadCard";
-import PostularseForm from "./PostularseForm";
 
 // Tamaño de página del feed (el backend acepta 1 a 50)
 const POR_PAGINA = 10;
@@ -22,7 +20,6 @@ export default function Feed() {
   const roles = obtenerRoles(usuario);
   const esAdmin = Boolean(usuario?.isAdmin || roles.includes(ROL_ADMIN));
   const esReclutador = roles.includes(ROL_RECLUTADOR);
-  const esEstudiante = roles.includes(ROL_ESTUDIANTE);
 
   const [oportunidades, setOportunidades] = useState([]);
   const [carreras, setCarreras] = useState([]);
@@ -323,15 +320,16 @@ export default function Feed() {
           oportunidad={oportunidadSeleccionada}
           onCerrar={() => setOportunidadSeleccionada(null)}
         >
-          {/* Postulantes: solo el creador de la oferta o un admin (el backend también lo exige) */}
-          {esAdmin || Number(oportunidadSeleccionada.creado_por) === Number(usuario?.id) ? (
-            <GestionPostulantes oportunidad={oportunidadSeleccionada} />
-          ) : esEstudiante ? (
-            <PostularseForm
-              oportunidad={oportunidadSeleccionada}
-              onExito={() => setOportunidadSeleccionada(null)}
-            />
-          ) : null}
+          <AccionesOferta
+            oportunidad={oportunidadSeleccionada}
+            onPostulado={() => {
+              const id = oportunidadSeleccionada.id;
+              setOportunidades((prev) =>
+                prev.map((o) => (o.id === id ? { ...o, mi_postulacion: "pendiente" } : o))
+              );
+              setOportunidadSeleccionada(null);
+            }}
+          />
         </DetalleModal>
       )}
     </div>

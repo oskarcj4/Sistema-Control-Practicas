@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../api/generic-api";
-import { COLOR_ROL, TEXTO_ROL, formatearFecha, obtenerRoles } from "../helpers/estilos";
+import { COLOR_ROL, TEXTO_ROL, obtenerRoles } from "../helpers/estilos";
+import { irA } from "../helpers/rutas";
 
 export default function BuscadorUsuarios() {
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState([]);
   const [buscando, setBuscando] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
 
   const contenedorRef = useRef(null);
 
@@ -118,8 +118,10 @@ export default function BuscadorUsuarios() {
                     <button
                       type="button"
                       onClick={() => {
-                        setUsuarioSeleccionado(u);
+                        // Abre el perfil público (#/usuario/<id>)
                         setMenuAbierto(false);
+                        setQuery("");
+                        irA(`#/usuario/${u.id}`);
                       }}
                       className="flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50"
                     >
@@ -158,92 +160,6 @@ export default function BuscadorUsuarios() {
         </div>
       )}
 
-      {/* Modal con el perfil del usuario consultado */}
-      {usuarioSeleccionado && (
-        <div
-          onClick={() => setUsuarioSeleccionado(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl"
-          >
-            <button
-              type="button"
-              onClick={() => setUsuarioSeleccionado(null)}
-              className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white shadow-md">
-                {`${(usuarioSeleccionado.nombre || "U").charAt(0)}${(usuarioSeleccionado.apellido || "").charAt(0)}`.toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  {usuarioSeleccionado.nombre} {usuarioSeleccionado.apellido}
-                </h3>
-                <p className="text-xs text-slate-500">@{usuarioSeleccionado.username}</p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {obtenerRoles(usuarioSeleccionado).map((r) => (
-                    <span
-                      key={r}
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        COLOR_ROL[r] || "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {TEXTO_ROL[r] || "Usuario"}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2.5 text-xs text-slate-600 sm:text-sm">
-              <div>
-                <span className="font-semibold text-slate-700">📧 Correo:</span>{" "}
-                <span className="text-slate-600">{usuarioSeleccionado.email}</span>
-              </div>
-              {usuarioSeleccionado.telefono && (
-                <div>
-                  <span className="font-semibold text-slate-700">📱 Teléfono:</span>{" "}
-                  <span className="text-slate-600">{usuarioSeleccionado.telefono}</span>
-                </div>
-              )}
-              {usuarioSeleccionado.institucion && (
-                <div>
-                  <span className="font-semibold text-slate-700">🏢 Institución:</span>{" "}
-                  <span className="text-slate-600">{usuarioSeleccionado.institucion}</span>
-                </div>
-              )}
-              {usuarioSeleccionado.carrera && (
-                <div>
-                  <span className="font-semibold text-slate-700">🎓 Carrera:</span>{" "}
-                  <span className="text-slate-600">{usuarioSeleccionado.carrera}</span>
-                </div>
-              )}
-              {usuarioSeleccionado.carnet && (
-                <div>
-                  <span className="font-semibold text-slate-700">🆔 Carnet:</span>{" "}
-                  <span className="text-slate-600">{usuarioSeleccionado.carnet}</span>
-                </div>
-              )}
-              {usuarioSeleccionado.biografia && (
-                <div className="mt-3 rounded-xl bg-slate-50 p-3">
-                  <span className="block font-semibold text-slate-700">Biografía:</span>
-                  <p className="mt-1 whitespace-pre-line text-xs text-slate-600">
-                    {usuarioSeleccionado.biografia}
-                  </p>
-                </div>
-              )}
-              <div className="pt-2 text-right text-[11px] text-slate-400">
-                Miembro desde: {formatearFecha(usuarioSeleccionado.fecha_registro)}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -67,14 +67,20 @@ export default function NotificacionesDropdown({
                 <li key={n.id}>
                   <button
                     type="button"
-                    onClick={() => onClickNotificacion && onClickNotificacion(n)}
+                    onClick={() => {
+                      if (n.enlace) setAbierto(false);
+                      if (onClickNotificacion) onClickNotificacion(n);
+                    }}
                     className={`block w-full cursor-pointer px-4 py-3 text-left hover:bg-slate-50 ${
                       Number(n.leido) === 0 ? "bg-indigo-50/60" : ""
                     }`}
                   >
                     <p className="text-sm font-medium text-slate-800">{n.titulo}</p>
                     <p className="text-xs text-slate-600">{n.mensaje}</p>
-                    <p className="mt-1 text-xs text-slate-400">{formatearFecha(n.fecha_creacion)}</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {formatearFecha(n.fecha_creacion)}
+                      {n.enlace && <span className="ml-2 font-semibold text-indigo-600">Abrir →</span>}
+                    </p>
                   </button>
                 </li>
               ))}

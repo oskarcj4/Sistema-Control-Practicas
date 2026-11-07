@@ -12,7 +12,8 @@ import EstadoVacio from "./ui/EstadoVacio";
 //   onMarcarLeida(notificacion, leido) -> PUT accion=leer
 //   onMarcarTodas()                    -> PUT accion=leer_todas
 //   onEliminar(notificacion)           -> DELETE ?id=
-export default function BuzonNotificaciones({ notificaciones = [], onMarcarLeida, onMarcarTodas, onEliminar }) {
+//   onAbrir(notificacion)              -> marca leída y abre su enlace (si tiene)
+export default function BuzonNotificaciones({ notificaciones = [], onMarcarLeida, onMarcarTodas, onEliminar, onAbrir }) {
   const [soloNoLeidas, setSoloNoLeidas] = useState(false);
 
   const noLeidas = notificaciones.filter((n) => Number(n.leido) === 0).length;
@@ -81,6 +82,15 @@ export default function BuzonNotificaciones({ notificaciones = [], onMarcarLeida
                   <p className="mt-1 text-xs text-slate-400">{formatearFecha(n.fecha_creacion)}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {n.enlace && onAbrir && (
+                    <button
+                      type="button"
+                      onClick={() => onAbrir(n)}
+                      className="cursor-pointer rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+                    >
+                      Abrir
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onMarcarLeida(n, leida ? 0 : 1)}

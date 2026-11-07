@@ -10,6 +10,9 @@ import NuevaOfertaForm from "./NuevaOfertaForm";
 import PerfilPage from "./PerfilPage";
 import SolicitudPublicacionForm from "./SolicitudPublicacionForm";
 import PanelAdmin from "./PanelAdmin";
+import OfertaPage from "./OfertaPage";
+import PerfilPublico from "./PerfilPublico";
+import { irA, useRuta } from "../helpers/rutas";
 
 // Lista de pestañas del Navbar
 const PESTANAS = [
@@ -25,7 +28,10 @@ const PESTANAS = [
 
 export default function MainPage() {
   const { usuario } = useContext(AuthContext);
-  const [pestanaActiva, setPestanaActiva] = useState("feed");
+  // La pestaña sale de la URL (#/feed, #/admin/usuarios, #/oferta/15...) para que
+  // atrás/adelante funcionen y los enlaces de notificaciones abran la pantalla correcta.
+  const { pestana: pestanaActiva, parametro } = useRuta();
+  const setPestanaActiva = (id) => irA(`#/${id}`);
   const [notificaciones, setNotificaciones] = useState([]);
 
   const usuarioId = usuario?.id;
@@ -77,6 +83,12 @@ export default function MainPage() {
     }
   }
 
+  // Clic en una notificación: se marca leída y, si trae enlace, se abre
+  function abrirNotificacion(notif) {
+    marcarLeida(notif, 1);
+    if (notif.enlace) irA(notif.enlace);
+  }
+
   async function eliminarNotificacion(notif) {
     try {
       await apiFetch(`notificaciones.php?id=${notif.id}`, { method: "DELETE" });
@@ -93,7 +105,7 @@ export default function MainPage() {
         pestanaActiva={pestanaActiva}
         onCambiarPestana={setPestanaActiva}
         notificaciones={notificaciones}
-        onClickNotificacion={(n) => marcarLeida(n, 1)}
+        onClickNotificacion={abrirNotificacion}
         onMarcarTodas={marcarTodas}
         onVerBuzon={() => setPestanaActiva("buzon")}
       />
@@ -115,12 +127,19 @@ export default function MainPage() {
           <SolicitudPublicacionForm />
         )}
 
-        {pestanaActiva === "admin" && <PanelAdmin />}
+        {pestanaActiva === "admin" && (
+          <PanelAdmin seccion={parametro} onCambiarSeccion={(s) => irA(`#/admin/${s}`)} />
+        )}
+
+        {pestanaActiva === "oferta" && <OfertaPage key={parametro} id={Number(parametro)} />}
+
+        {pestanaActiva === "usuario" && <PerfilPublico key={parametro} id={Number(parametro)} />}
 
         {pestanaActiva === "buzon" && (
           <BuzonNotificaciones
             notificaciones={notificaciones}
             onMarcarLeida={marcarLeida}
+            onAbrir={abrirNotificacion}
             onMarcarTodas={marcarTodas}
             onEliminar={eliminarNotificacion}
           />

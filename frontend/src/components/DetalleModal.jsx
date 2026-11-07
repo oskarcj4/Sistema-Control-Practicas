@@ -1,46 +1,40 @@
-import {
-  COLOR_MODALIDAD,
-  TEXTO_MODALIDAD,
-  formatearFecha,
-} from "../helpers/estilos";
+import { useState } from "react";
+import { enlaceCompleto, irA } from "../helpers/rutas";
+import DetalleOferta from "./DetalleOferta";
 
-// T5 - Ventana modal con el detalle completo de una oportunidad.
+// Ventana modal con el detalle completo de una oportunidad.
 //
 // Props:
 //   oportunidad -> la oferta a mostrar. Si es null, el modal NO se dibuja.
-//   onCerrar    -> función que cierra el modal (en T6 hará setOportunidadSeleccionada(null))
-//   children    -> lo que pongas entre <DetalleModal> ... </DetalleModal>
-//                  aparece al final. Ahí irá tu <PostularseForm /> (T7).
-//
-// Ejemplo de uso (T6):
-//   <DetalleModal oportunidad={oportunidadSeleccionada} onCerrar={() => setOportunidadSeleccionada(null)}>
-//     <PostularseForm oportunidad={oportunidadSeleccionada} />
-//   </DetalleModal>
+//   onCerrar    -> función que cierra el modal
+//   children    -> acciones al final (formulario de postulación, postulantes...)
 export default function DetalleModal({ oportunidad, onCerrar, children }) {
-  // Si no hay oportunidad seleccionada, no se muestra nada.
+  const [copiado, setCopiado] = useState(false);
+
   if (!oportunidad) {
     return null;
   }
 
-  const colorModalidad =
-    COLOR_MODALIDAD[oportunidad.modalidad] || "bg-slate-100 text-slate-700";
+  const ruta = `#/oferta/${oportunidad.id}`;
+
+  async function copiarEnlace() {
+    try {
+      await navigator.clipboard.writeText(enlaceCompleto(ruta));
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles: se abre la página y el usuario copia la URL
+      irA(ruta);
+    }
+  }
 
   return (
-    // ⚠️ IMPORTANTE: Capa 1 = fondo oscuro semitransparente que cubre TODA la pantalla.
-    // "fixed inset-0" la pega a los 4 bordes de la ventana; "z-50" la pone encima de todo.
-    // Al hacer clic en el fondo se cierra el modal.
-    <div
-      onClick={onCerrar}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    >
-      {/* ⚠️ IMPORTANTE: Capa 2 = la caja blanca.
-          e.stopPropagation() evita que un clic DENTRO de la caja "suba" hasta el fondo
-          y cierre el modal por accidente. */}
+    // Capa 1: fondo oscuro; clic fuera cierra. Capa 2: caja blanca (stopPropagation).
+    <div onClick={onCerrar} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
         onClick={(e) => e.stopPropagation()}
         className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
       >
-        {/* Botón X */}
         <button
           type="button"
           onClick={onCerrar}
@@ -50,36 +44,24 @@ export default function DetalleModal({ oportunidad, onCerrar, children }) {
           ×
         </button>
 
-        <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${colorModalidad}`}>
-          {TEXTO_MODALIDAD[oportunidad.modalidad] || oportunidad.modalidad}
-        </span>
+        <DetalleOferta oportunidad={oportunidad}>{children}</DetalleOferta>
 
-        <h2 className="mt-3 pr-8 text-2xl font-bold text-slate-800">{oportunidad.titulo}</h2>
-
-        <div className="mt-2 space-y-1 text-sm text-slate-600">
-          <p>🏢 {oportunidad.institucion || "Institución no especificada"}</p>
-          <p>🎓 {oportunidad.carrera || "Cualquier carrera"}</p>
-          {oportunidad.ubicacion && <p>📍 {oportunidad.ubicacion}</p>}
-          <p>📅 Fecha límite: {formatearFecha(oportunidad.fecha_cierre)}</p>
+        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+          <button
+            type="button"
+            onClick={copiarEnlace}
+            className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {copiado ? "✓ Enlace copiado" : "🔗 Copiar enlace"}
+          </button>
+          <button
+            type="button"
+            onClick={() => irA(ruta)}
+            className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Abrir página de la oferta
+          </button>
         </div>
-
-        <section className="mt-5">
-          <h3 className="font-semibold text-slate-700">Descripción</h3>
-          {/* whitespace-pre-line respeta los saltos de línea del texto */}
-          <p className="mt-1 whitespace-pre-line text-sm text-slate-600">
-            {oportunidad.descripcion}
-          </p>
-        </section>
-
-        <section className="mt-5">
-          <h3 className="font-semibold text-slate-700">Requisitos</h3>
-          <p className="mt-1 whitespace-pre-line text-sm text-slate-600">
-            {oportunidad.requisitos || "No se especificaron requisitos."}
-          </p>
-        </section>
-
-        {/* Aquí aparece lo que pases como children (el formulario de postulación). */}
-        {children && <div className="mt-6 border-t border-slate-200 pt-5">{children}</div>}
       </div>
     </div>
   );
