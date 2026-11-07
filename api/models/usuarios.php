@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . "/../core/notificar.php";
+
 class Usuarios {
     private Connection $connection;
     private Response $response;
@@ -55,6 +57,39 @@ class Usuarios {
     }
 
     # Filtrar por id
+    /**
+     * Perfil público (lo puede ver cualquier usuario autenticado): sin email,
+     * teléfono ni carnet. Incluye fecha de registro y sus ofertas activas.
+     */
+    public function findPerfil(int $id){
+        if ($id <= 0) {
+            $this->response->error("El ID es invalido", -1, 400);
+        }
+        try {
+            $stmt = $this->connection->prepare(str_replace("u.biografia", "u.biografia, u.fecha_registro", self::SELECT_USUARIO_PUBLICO) . "
+                            WHERE u.estado = 1 AND u.estado_cuenta = 'activo' AND u.id = ?");
+            $stmt->execute([$id]);
+            $perfil = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$perfil) {
+                $this->response->error("Usuario no encontrado", -1, 404);
+            }
+
+            $stmt = $this->connection->prepare("SELECT o.id, o.titulo, o.modalidad, o.fecha_cierre, i.nombre AS institucion
+                                                FROM oportunidades o
+                                                LEFT JOIN instituciones i ON i.id = o.institucion_id
+                                                WHERE o.creado_por = ? AND o.estado = 1 AND o.estado_oportunidad = 'activa'
+                                                  AND o.fecha_cierre >= CURDATE()
+                                                ORDER BY o.fecha_cierre LIMIT 10");
+            $stmt->execute([$id]);
+            $perfil['ofertas_activas'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $this->response->success($perfil);
+        } catch (PDOException $e) {
+            Response::error("Error", -1, 500);
+            //Response::debugError($e);
+        }
+    }
+
     public function findById(int $id){
         if ($id <= 0) {
             $this->response->error("El ID es invalido", -1, 400);
@@ -335,8 +370,7 @@ class Usuarios {
             if ($motivo !== '') {
                 $mensaje .= " Motivo: {$motivo}";
             }
-            $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
-            $stmt->execute([$id, $titulo, $mensaje]);
+            crearNotificacion($this->connection, $id, $titulo, $mensaje, $autorizar ? "#/nueva-oferta" : null);
 
             $this->connection->commit();
 

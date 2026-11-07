@@ -47,7 +47,8 @@ class Oportunidades {
      * El cliente pide la siguiente página con cursor = id de la última fila;
      * si recibe menos de $limit filas, ya no hay más.
      */
-    public function feed(int $cursor=0, int $carrera_id = 0, string $modalidad = '', $limit=20, string $q = '', int $creado_por = 0){
+    # $usuario_id: quien consulta; agrega "mi_postulacion" (estado de su postulación o null)
+    public function feed(int $cursor=0, int $carrera_id = 0, string $modalidad = '', $limit=20, string $q = '', int $creado_por = 0, int $usuario_id = 0){
         if ($modalidad !== '' && !in_array($modalidad, self::MODALIDADES, true)) {
             $this->response->error("La modalidad no es valida", -1, 400);
         }
@@ -62,13 +63,16 @@ class Oportunidades {
                                    o.carrera_id, c.nombre AS carrera,
                                    o.modalidad, o.ubicacion, o.fecha_publicacion, o.fecha_cierre, o.estado_oportunidad,
                                    o.creado_por, CONCAT(u.nombre, ' ', u.apellido) AS creado_por_nombre,
-                                   o.creado_en, o.visto
+                                   o.creado_en, o.visto,
+                                   (SELECT p.estado_postulacion FROM postulaciones p
+                                     WHERE p.oportunidad_id = o.id AND p.estudiante_id = ? AND p.estado = 1
+                                     LIMIT 1) AS mi_postulacion
                             FROM oportunidades o
                             INNER JOIN usuarios u ON u.id = o.creado_por
                             LEFT JOIN instituciones i ON i.id = o.institucion_id
                             LEFT JOIN carreras c ON c.id = o.carrera_id
                             WHERE o.estado = 1 AND o.estado_oportunidad = 'activa' AND o.fecha_cierre >= CURDATE()";
-            $params = [];
+            $params = [$usuario_id];
 
             if ($carrera_id > 0) {
                 $query .= " AND (o.carrera_id = ? OR o.carrera_id IS NULL)";
@@ -112,7 +116,7 @@ class Oportunidades {
     }
 
     # Filtrar por id
-    public function findById(int $id){
+    public function findById(int $id, int $usuario_id = 0){
         if ($id <= 0) {
             $this->response->error("El ID es invalido", -1, 400);
         }
@@ -122,13 +126,16 @@ class Oportunidades {
                                    o.carrera_id, c.nombre AS carrera,
                                    o.modalidad, o.ubicacion, o.fecha_publicacion, o.fecha_cierre, o.estado_oportunidad,
                                    o.creado_por, CONCAT(u.nombre, ' ', u.apellido) AS creado_por_nombre,
-                                   o.creado_en, o.visto
+                                   o.creado_en, o.visto,
+                                   (SELECT p.estado_postulacion FROM postulaciones p
+                                     WHERE p.oportunidad_id = o.id AND p.estudiante_id = ? AND p.estado = 1
+                                     LIMIT 1) AS mi_postulacion
                             FROM oportunidades o
                             INNER JOIN usuarios u ON u.id = o.creado_por
                             LEFT JOIN instituciones i ON i.id = o.institucion_id
                             LEFT JOIN carreras c ON c.id = o.carrera_id
                             WHERE o.estado = 1 AND o.id = ?");
-            $stmt->execute([$id]);
+            $stmt->execute([$usuario_id, $id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$result) {

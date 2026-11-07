@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . "/../core/notificar.php";
+
 require_once __DIR__ . "/../core/storage.php";
 
 class Postulaciones {
@@ -220,6 +222,23 @@ class Postulaciones {
      * Inserta la postulación (o reactiva la retirada) con los datos del formulario
      * y las URLs de los archivos YA subidos al almacenamiento.
      */
+    /** Avisa al creador de la oferta que llegó un postulante. Accesorio: si falla no bloquea. */
+    private function avisarCreador(int $oportunidad_id, int $estudiante_id): void {
+        try {
+            $stmt = $this->connection->prepare("SELECT o.creado_por, o.titulo, CONCAT(u.nombre, ' ', u.apellido) AS estudiante
+                                                FROM oportunidades o, usuarios u
+                                                WHERE o.id = ? AND u.id = ?");
+            $stmt->execute([$oportunidad_id, $estudiante_id]);
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($fila) {
+                crearNotificacion($this->connection, (int)$fila['creado_por'], "Nuevo postulante",
+                    "{$fila['estudiante']} se postuló a \"{$fila['titulo']}\".", "#/oferta/{$oportunidad_id}");
+            }
+        } catch (\Throwable $th) {
+            // La postulación ya quedó guardada; el aviso es accesorio
+        }
+    }
+
     public function registrar(int $oportunidad_id, int $estudiante_id, ?array $previa, array $formulario, array $documentos) {
         $campos = array_merge($formulario, $this->validarDocumentos($documentos));
         $columnas = array_keys($campos);
@@ -231,6 +250,7 @@ class Postulaciones {
                           WHERE id = ?";
                 $stmt = $this->connection->prepare($query);
                 $stmt->execute([...array_values($campos), (int)$previa['id']]);
+                $this->avisarCreador($oportunidad_id, $estudiante_id);
                 $this->response->success("Postulación registrada con éxito");
             }
 
@@ -243,6 +263,7 @@ class Postulaciones {
                 $this->response->error("No se pudo registrar la postulación", -1, 500);
             }
 
+            $this->avisarCreador($oportunidad_id, $estudiante_id);
             $this->response->success("Postulación registrada con éxito");
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
@@ -329,7 +350,7 @@ class Postulaciones {
         }
 
         try {
-            $stmt = $this->connection->prepare("SELECT p.estado_postulacion, p.estudiante_id, o.titulo
+            $stmt = $this->connection->prepare("SELECT p.estado_postulacion, p.estudiante_id, p.oportunidad_id, o.titulo
                                                 FROM postulaciones p
                                                 INNER JOIN oportunidades o ON o.id = p.oportunidad_id
                                                 WHERE p.id = ? AND p.estado = 1");
@@ -365,8 +386,8 @@ class Postulaciones {
             $mensaje = $comentario !== ''
                 ? $comentario
                 : "Tu postulación para \"{$postulacion['titulo']}\" cambió a: " . str_replace('_', ' ', $estado_postulacion) . ".";
-            $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
-            $stmt->execute([(int)$postulacion['estudiante_id'], $titulo, $mensaje]);
+            crearNotificacion($this->connection, (int)$postulacion['estudiante_id'], $titulo, $mensaje,
+                "#/oferta/" . (int)$postulacion['oportunidad_id']);
 
             $this->connection->commit();
 

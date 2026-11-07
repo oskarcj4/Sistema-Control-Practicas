@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . "/../core/notificar.php";
+
 class Notificaciones {
     private Connection $connection;
     private Response $response;
@@ -11,7 +13,7 @@ class Notificaciones {
     # Mostrar las últimas notificaciones de todos los usuarios
     public function findAll(){
         try {
-            $stmt = $this->connection->prepare("SELECT n.id, n.usuario_id, n.titulo, n.mensaje, n.leido, n.fecha_creacion
+            $stmt = $this->connection->prepare("SELECT n.id, n.usuario_id, n.titulo, n.mensaje, n.enlace, n.leido, n.fecha_creacion
                             FROM notificaciones n
                             WHERE n.estado = 1 ORDER BY n.fecha_creacion DESC LIMIT 100");
             $stmt->execute();
@@ -29,7 +31,7 @@ class Notificaciones {
             $this->response->error("El ID es invalido", -1, 400);
         }
         try {
-            $stmt = $this->connection->prepare("SELECT n.id, n.usuario_id, n.titulo, n.mensaje, n.leido, n.fecha_creacion
+            $stmt = $this->connection->prepare("SELECT n.id, n.usuario_id, n.titulo, n.mensaje, n.enlace, n.leido, n.fecha_creacion
                             FROM notificaciones n
                             WHERE n.estado = 1 AND n.id = ?");
             $stmt->execute([$id]);
@@ -52,7 +54,7 @@ class Notificaciones {
             $this->response->error("El ID de usuario es invalido", -1, 400);
         }
         try {
-            $query = "SELECT n.id, n.usuario_id, n.titulo, n.mensaje, n.leido, n.fecha_creacion
+            $query = "SELECT n.id, n.usuario_id, n.titulo, n.mensaje, n.enlace, n.leido, n.fecha_creacion
                             FROM notificaciones n
                             WHERE n.estado = 1 AND n.usuario_id = ?";
             if ($soloNoLeidas) {
@@ -86,15 +88,42 @@ class Notificaciones {
                 $this->response->error("El usuario no existe", -1, 404);
             }
 
-            $query = "INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)";
-            $stmt = $this->connection->prepare($query);
-            $stmt->execute([$usuario_id, $data['titulo'], $data['mensaje']]);
-
-            if ($stmt->rowCount() === 0) {
-                $this->response->error("No se pudo crear la notificación", -1, 500);
-            }
+            crearNotificacion($this->connection, $usuario_id, $data['titulo'], $data['mensaje'], $arrayData['enlace'] ?? null);
 
             $this->response->success("Notificación creada con éxito");
+        } catch (PDOException $e) {
+            Response::error("Error", -1, 500);
+            //Response::debugError($e);
+        }
+    }
+
+    /**
+     * Aviso masivo (solo admin): una notificación para todos los usuarios activos
+     * o solo para los que tienen un rol. $rol_id = 0 -> todos.
+     * Devuelve cuántos usuarios la recibieron.
+     */
+    public function addMasivo(array $arrayData, int $rol_id){
+        $data = $this->validate($arrayData);
+        $enlace = enlaceValido($arrayData['enlace'] ?? null);
+
+        try {
+            $query = "INSERT INTO notificaciones (usuario_id, titulo, mensaje, enlace)
+                      SELECT u.id, ?, ?, ? FROM usuarios u
+                      WHERE u.estado = 1 AND u.estado_cuenta = 'activo'";
+            $params = [$data['titulo'], $data['mensaje'], $enlace];
+            if ($rol_id > 0) {
+                $query .= " AND EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                         WHERE ar.id_usuario = u.id AND ar.estado = 1 AND ar.id_rol = ?)";
+                $params[] = $rol_id;
+            }
+            $stmt = $this->connection->prepare($query);
+            $stmt->execute($params);
+
+            $enviadas = $stmt->rowCount();
+            if ($enviadas === 0) {
+                $this->response->error("No hay usuarios activos con ese destino", -1, 404);
+            }
+            $this->response->success(['enviadas' => $enviadas], "Aviso enviado a {$enviadas} usuarios");
         } catch (PDOException $e) {
             Response::error("Error", -1, 500);
             //Response::debugError($e);

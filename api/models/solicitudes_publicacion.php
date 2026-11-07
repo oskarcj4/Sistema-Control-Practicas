@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . "/../core/notificar.php";
+
 require_once __DIR__ . "/../core/storage.php";
 
 class SolicitudesPublicacion {
@@ -161,13 +163,11 @@ class SolicitudesPublicacion {
                     $nombreSolicitante = $usuario['username'] ?? 'Un usuario';
                 }
 
-                $stmtNotif = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
                 foreach ($admins as $admin) {
-                    $stmtNotif->execute([
-                        (int)$admin['id_usuario'],
+                    crearNotificacion($this->connection, (int)$admin['id_usuario'],
                         "Nueva solicitud de publicación",
-                        "{$nombreSolicitante} ha enviado una solicitud para publicar prácticas en '{$data['nombre_organizacion_proyecto']}'."
-                    ]);
+                        "{$nombreSolicitante} ha enviado una solicitud para publicar prácticas en '{$data['nombre_organizacion_proyecto']}'.",
+                        "#/admin/solicitudes");
                 }
             } catch (\Throwable $th) {
                 // Notificación a administradores es accesoria, no bloquea la respuesta
@@ -273,8 +273,8 @@ class SolicitudesPublicacion {
             if ($comentario_admin !== '') {
                 $mensaje .= " Comentario del administrador: {$comentario_admin}";
             }
-            $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
-            $stmt->execute([(int)$solicitud['usuario_id'], $titulo, $mensaje]);
+            crearNotificacion($this->connection, (int)$solicitud['usuario_id'], $titulo, $mensaje,
+                $estado_solicitud === 'aprobada' ? "#/nueva-oferta" : "#/solicitud-publicacion");
 
             $this->connection->commit();
 
