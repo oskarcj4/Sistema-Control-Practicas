@@ -57,13 +57,13 @@ try {
             $solo_mias = trim($_GET['solo_mias'] ?? '') === '1' ? (int)$auth_data['id'] : 0;
 
             if ($id > 0) {
-                $oportunidad->findById($id);
+                $oportunidad->findById($id, (int)$auth_data['id']);
             } elseif ($creado_por > 0) {
                 $oportunidad->findByCreador($creado_por);
             } elseif ($todas === '1') {
                 $oportunidad->findAll();
             } else {
-                $oportunidad->feed($cursor, $carrera_id, $modalidad, $limit, $q, $solo_mias);
+                $oportunidad->feed($cursor, $carrera_id, $modalidad, $limit, $q, $solo_mias, (int)$auth_data['id']);
             }
             break;
 

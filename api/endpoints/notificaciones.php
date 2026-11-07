@@ -52,10 +52,21 @@ try {
 
         case 'POST':
             exigirAdmin($auth);
+            # accion=masivo { destino: "todos" | <rol_id>, titulo, mensaje, enlace? }
+            if (inputString($data, 'accion') === 'masivo') {
+                $destino = inputString($data, 'destino', 'todos');
+                $notificacion->addMasivo([
+                    'titulo'  => inputString($data, 'titulo'),
+                    'mensaje' => inputString($data, 'mensaje'),
+                    'enlace'  => inputString($data, 'enlace')
+                ], $destino === 'todos' ? 0 : max(0, (int)$destino));
+                break;
+            }
             $notificacion->add([
                 'usuario_id' => inputString($data, 'usuario_id'),
                 'titulo'     => inputString($data, 'titulo'),
-                'mensaje'    => inputString($data, 'mensaje')
+                'mensaje'    => inputString($data, 'mensaje'),
+                'enlace'     => inputString($data, 'enlace')
             ]);
             break;
 

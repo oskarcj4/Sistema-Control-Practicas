@@ -32,6 +32,8 @@ try {
             if ($auth_data === null) {
                 Response::error("Usuario no autenticado", -2);
             }
+            # Roles y estado actuales de la BD: un rol nuevo se ve al recargar la página
+            $auth_data = refrescarAuthDesdeBD($auth_data);
 
             $login = new Login($connection, $response);
             Response::success([

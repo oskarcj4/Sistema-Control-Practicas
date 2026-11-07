@@ -31,7 +31,7 @@ $data = readJsonInput($method);
 if ($auth_data !== null) {
     $esAdmin    = boolval($auth_data['isAdmin']);
     $propioId   = (int)$auth_data['id'];
-    $esBusqueda = isset($_GET['q']) || isset($_GET['buscar']);
+    $esBusqueda = isset($_GET['q']) || isset($_GET['buscar']) || isset($_GET['perfil']);
 
     if ($method === 'GET' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId && !$esBusqueda) {
         Response::invalidAccess();
@@ -50,6 +50,14 @@ if ($auth_data !== null) {
     if ($method === 'DELETE' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId) {
         Response::invalidAccess();
     }
+    # Un admin no puede eliminarse ni suspenderse a sí mismo desde el panel (se quedaría fuera)
+    if ($esAdmin && $method === 'DELETE' && (int)($_GET['id'] ?? 0) === $propioId) {
+        Response::error("No puedes eliminar tu propia cuenta de administrador", -1, 409);
+    }
+    if ($esAdmin && $method === 'PUT' && (int)inputString($data, 'id', '0') === $propioId
+        && inputString($data, 'estado_cuenta', 'activo') !== 'activo') {
+        Response::error("No puedes suspender tu propia cuenta", -1, 409);
+    }
 }
 
 try {
@@ -64,6 +72,8 @@ try {
 
             if (isset($_GET['publicadores'])) {
                 $usuario->findPublicadores();
+            } elseif (isset($_GET['perfil'])) {
+                $usuario->findPerfil((int)$_GET['perfil']);
             } elseif ($termino !== '') {
                 $usuario->search($termino, $esAdmin);
             } elseif ($id > 0) {
