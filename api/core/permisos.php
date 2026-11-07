@@ -88,3 +88,13 @@ function duenoSolicitud(PDO $connection, int $solicitud_id): int
     }
     return (int)$fila['usuario_id'];
 }
+
+/** Destinatario de una notificación. Corta con 404 si no existe. */
+function duenoNotificacion(PDO $connection, int $notificacion_id): int
+{
+    $fila = filaUnica($connection, "SELECT usuario_id FROM notificaciones WHERE id = ? AND estado = 1", [$notificacion_id]);
+    if ($fila === null) {
+        Response::error("Notificación no encontrada", -1, 404);
+    }
+    return (int)$fila['usuario_id'];
+}
