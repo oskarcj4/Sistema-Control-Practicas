@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { formatearFecha } from "../helpers/estilos";
 
-// T17 - Campana de notificaciones con menú desplegable.
-// Solo dibuja. La carga (GET notificaciones.php?no_leidas=1) y el PUT de
-// marcar como leída (T18) los haces tú.
+// Campana de notificaciones con menú desplegable. Solo dibuja: MainPage carga
+// la lista y hace los PUT / DELETE.
 //
 // Props:
 //   notificaciones -> arreglo { id, titulo, mensaje, leido, fecha_creacion }
-//   onClickNotificacion -> (opcional) función(notificacion) al hacer clic en una
-export default function NotificacionesDropdown({ notificaciones = [], onClickNotificacion }) {
+//   onClickNotificacion -> (opcional) función(notificacion) al hacer clic en una (marca leída)
+//   onMarcarTodas -> (opcional) marca todas como leídas
+//   onVerBuzon -> (opcional) abre la pestaña Buzón
+const MAX_EN_MENU = 8;
+
+export default function NotificacionesDropdown({
+  notificaciones = [],
+  onClickNotificacion,
+  onMarcarTodas,
+  onVerBuzon,
+}) {
   // abierto = true -> se ve el menú; false -> está oculto.
   const [abierto, setAbierto] = useState(false);
 
@@ -36,9 +44,18 @@ export default function NotificacionesDropdown({ notificaciones = [], onClickNot
 
       {abierto && (
         <div className="absolute right-0 z-40 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-          <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">
-            Notificaciones
-          </p>
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-700">Notificaciones</p>
+            {onMarcarTodas && noLeidas > 0 && (
+              <button
+                type="button"
+                onClick={onMarcarTodas}
+                className="cursor-pointer text-xs font-medium text-indigo-600 hover:text-indigo-800"
+              >
+                Marcar todas como leídas
+              </button>
+            )}
+          </div>
 
           {notificaciones.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-slate-400">
@@ -46,7 +63,7 @@ export default function NotificacionesDropdown({ notificaciones = [], onClickNot
             </p>
           ) : (
             <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
-              {notificaciones.map((n) => (
+              {notificaciones.slice(0, MAX_EN_MENU).map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
@@ -62,6 +79,19 @@ export default function NotificacionesDropdown({ notificaciones = [], onClickNot
                 </li>
               ))}
             </ul>
+          )}
+
+          {onVerBuzon && (
+            <button
+              type="button"
+              onClick={() => {
+                setAbierto(false);
+                onVerBuzon();
+              }}
+              className="block w-full cursor-pointer border-t border-slate-100 px-4 py-2.5 text-center text-xs font-semibold text-indigo-600 hover:bg-slate-50"
+            >
+              Ver todo en el buzón
+            </button>
           )}
         </div>
       )}

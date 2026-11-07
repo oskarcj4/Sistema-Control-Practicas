@@ -17,12 +17,16 @@ import NotificacionesDropdown from "./NotificacionesDropdown";
 //   onCambiarPestana : función(id) que cambia de pantalla
 //   notificaciones : arreglo para la campana
 //   onClickNotificacion : función(notificacion) al hacer clic
+//   onMarcarTodas : marca todas como leídas
+//   onVerBuzon : abre la pestaña Buzón
 export default function Navbar({
   pestanas,
   pestanaActiva,
   onCambiarPestana,
   notificaciones,
   onClickNotificacion,
+  onMarcarTodas,
+  onVerBuzon,
 }) {
   const { usuario, logout } = useContext(AuthContext);
 
@@ -89,6 +93,8 @@ export default function Navbar({
           <NotificacionesDropdown
             notificaciones={notificaciones}
             onClickNotificacion={onClickNotificacion}
+            onMarcarTodas={onMarcarTodas}
+            onVerBuzon={onVerBuzon}
           />
 
           <button

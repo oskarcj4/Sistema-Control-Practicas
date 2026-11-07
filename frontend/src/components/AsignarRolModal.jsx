@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { COLOR_ROL, TEXTO_ROL } from "../helpers/estilos";
 
-// T14 - Modal para asignar o quitar roles a un usuario.
+// Modal para asignar o quitar roles a un usuario.
 // Solo dibuja. Las llamadas POST / DELETE a asignaciones_roles.php las haces tú.
 //
 // Props:
@@ -22,7 +22,6 @@ export default function AsignarRolModal({
   const [rolElegido, setRolElegido] = useState("");
   const [rolesAsignados, setRolesAsignados] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
-
   if (!usuario) {
     return null;
   }

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
 import { AuthContext } from "../context/AuthContext";
 import {
@@ -12,6 +12,11 @@ import GestionPostulantes from "./GestionPostulantes";
 import OportunidadCard from "./OportunidadCard";
 import PostularseForm from "./PostularseForm";
 
+// Tamaño de página del feed (el backend acepta 1 a 50)
+const POR_PAGINA = 10;
+// Espera tras dejar de escribir antes de pedir al servidor
+const ESPERA_BUSQUEDA_MS = 400;
+
 export default function Feed() {
   const { usuario } = useContext(AuthContext);
   const roles = obtenerRoles(usuario);
@@ -23,32 +28,62 @@ export default function Feed() {
   const [carreras, setCarreras] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [cargandoMas, setCargandoMas] = useState(false);
+  // false cuando la última página llegó incompleta (no hay más ofertas)
+  const [hayMas, setHayMas] = useState(false);
   const [oportunidadSeleccionada, setOportunidadSeleccionada] = useState(null);
 
   // Filtro de ofertas propias para reclutador / admin
   const [soloMisOfertas, setSoloMisOfertas] = useState(false);
 
-  // Estados de filtros
+  // Estados de filtros (se aplican en el servidor)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [filtroTexto, setFiltroTexto] = useState("");
+  const [textoBuscado, setTextoBuscado] = useState(""); // filtroTexto con debounce
   const [filtroModalidad, setFiltroModalidad] = useState("");
   const [filtroCarrera, setFiltroCarrera] = useState("");
 
-  // Cargar oportunidades y catálogo de carreras
+  // Catálogo de carreras para el select
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetch("carreras.php", { signal: controller.signal })
+      .then((res) => setCarreras(res.data || []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
+  // Debounce: no pedir al servidor en cada tecla
+  useEffect(() => {
+    const t = setTimeout(() => setTextoBuscado(filtroTexto.trim()), ESPERA_BUSQUEDA_MS);
+    return () => clearTimeout(t);
+  }, [filtroTexto]);
+
+  // GET oportunidades.php?limit=&cursor=&q=&modalidad=&carrera_id=&solo_mias=
+  const pedirPagina = useCallback(
+    async (cursor, signal) => {
+      const params = new URLSearchParams({ limit: String(POR_PAGINA) });
+      if (cursor) params.set("cursor", String(cursor));
+      if (textoBuscado) params.set("q", textoBuscado);
+      if (filtroModalidad) params.set("modalidad", filtroModalidad);
+      if (filtroCarrera) params.set("carrera_id", filtroCarrera);
+      if (soloMisOfertas) params.set("solo_mias", "1");
+      const res = await apiFetch(`oportunidades.php?${params}`, { signal });
+      return res.data || [];
+    },
+    [textoBuscado, filtroModalidad, filtroCarrera, soloMisOfertas]
+  );
+
+  // Primera página: se recarga cada vez que cambia un filtro
   useEffect(() => {
     const controller = new AbortController();
 
-    async function cargarDatos() {
+    async function cargarPrimera() {
       try {
         setCargando(true);
         setErrorCarga(null);
-        const [resOportunidades, resCarreras] = await Promise.all([
-          apiFetch("oportunidades.php", { signal: controller.signal }),
-          apiFetch("carreras.php", { signal: controller.signal }),
-        ]);
-
-        setOportunidades(resOportunidades.data || []);
-        setCarreras(resCarreras.data || []);
+        const pagina = await pedirPagina(0, controller.signal);
+        setOportunidades(pagina);
+        setHayMas(pagina.length === POR_PAGINA);
       } catch (err) {
         if (err.name === "AbortError") return;
         setErrorCarga(err.message);
@@ -59,47 +94,36 @@ export default function Feed() {
       }
     }
 
-    cargarDatos();
+    cargarPrimera();
     return () => controller.abort();
-  }, []);
+  }, [pedirPagina]);
+
+  // Siguiente página: cursor = id de la última oferta mostrada (el feed va por id descendente)
+  async function cargarMas() {
+    const ultima = oportunidades[oportunidades.length - 1];
+    if (!ultima) return;
+    try {
+      setCargandoMas(true);
+      const pagina = await pedirPagina(ultima.id);
+      setOportunidades((prev) => [...prev, ...pagina]);
+      setHayMas(pagina.length === POR_PAGINA);
+    } catch (err) {
+      setErrorCarga(err.message);
+    } finally {
+      setCargandoMas(false);
+    }
+  }
 
   // Contador de filtros activos
   const totalFiltrosActivos =
-    (filtroTexto ? 1 : 0) + (filtroModalidad ? 1 : 0) + (filtroCarrera ? 1 : 0);
+    (filtroTexto.trim() ? 1 : 0) + (filtroModalidad ? 1 : 0) + (filtroCarrera ? 1 : 0);
 
   function limpiarFiltros() {
     setFiltroTexto("");
+    setTextoBuscado("");
     setFiltroModalidad("");
     setFiltroCarrera("");
   }
-
-  // Filtrado reactivo en cliente
-  const oportunidadesFiltradas = oportunidades.filter((op) => {
-    // 1. Filtro mis ofertas
-    if (soloMisOfertas && Number(op.creado_por) !== Number(usuario?.id)) {
-      return false;
-    }
-    // 2. Filtro modalidad
-    if (filtroModalidad && op.modalidad !== filtroModalidad) {
-      return false;
-    }
-    // 3. Filtro carrera
-    if (filtroCarrera && op.carrera_id && Number(op.carrera_id) !== Number(filtroCarrera)) {
-      return false;
-    }
-    // 4. Búsqueda por texto (título, institución, descripción o requisitos)
-    if (filtroTexto.trim()) {
-      const q = filtroTexto.toLowerCase();
-      const coincide =
-        (op.titulo || "").toLowerCase().includes(q) ||
-        (op.institucion || "").toLowerCase().includes(q) ||
-        (op.descripcion || "").toLowerCase().includes(q) ||
-        (op.requisitos || "").toLowerCase().includes(q) ||
-        (op.ubicacion || "").toLowerCase().includes(q);
-      if (!coincide) return false;
-    }
-    return true;
-  });
 
   return (
     <div className="space-y-6">
@@ -139,7 +163,7 @@ export default function Feed() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Todas ({oportunidades.length})
+              Todas
             </button>
             <button
               type="button"
@@ -150,8 +174,7 @@ export default function Feed() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Mis ofertas (
-              {oportunidades.filter((op) => Number(op.creado_por) === Number(usuario?.id)).length})
+              Mis ofertas
             </button>
           </div>
         )}
@@ -228,7 +251,9 @@ export default function Feed() {
           </div>
 
           <div className="mt-3 text-right text-xs text-slate-400">
-            Mostrando {oportunidadesFiltradas.length} de {oportunidades.length} ofertas
+            {cargando
+              ? "Buscando..."
+              : `${oportunidades.length}${hayMas ? "+" : ""} ofertas encontradas`}
           </div>
         </div>
       )}
@@ -236,7 +261,7 @@ export default function Feed() {
       {cargando && <p className="text-slate-500">Cargando oportunidades...</p>}
       {errorCarga && <p className="text-red-500">Error: {errorCarga}</p>}
 
-      {!cargando && oportunidadesFiltradas.length === 0 && (
+      {!cargando && oportunidades.length === 0 && (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
           {totalFiltrosActivos > 0 ? (
             <div>
@@ -259,7 +284,7 @@ export default function Feed() {
 
       {/* Lista de tarjetas */}
       <div className="flex w-full flex-col gap-5">
-        {oportunidadesFiltradas.map((op) => {
+        {oportunidades.map((op) => {
           const esPropia = Number(op.creado_por) === Number(usuario?.id);
           return (
             <div key={op.id} className="relative">
@@ -278,6 +303,19 @@ export default function Feed() {
           );
         })}
       </div>
+
+      {!cargando && hayMas && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={cargarMas}
+            disabled={cargandoMas}
+            className="cursor-pointer rounded-xl border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {cargandoMas ? "Cargando..." : "Cargar más ofertas"}
+          </button>
+        </div>
+      )}
 
       {/* Modal con detalle y formulario según rol */}
       {oportunidadSeleccionada && (

@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
+import BuzonSolicitudes from "./BuzonSolicitudes";
 import CrudCatalogo from "./CrudCatalogo";
+import PermisosPublicacion from "./PermisosPublicacion";
 import TablaUsuarios from "./TablaUsuarios";
 
 // Panel de administración con sub-secciones.
-// Para agregar una sección nueva (por ejemplo el buzón de solicitudes),
-// agrega una entrada a SECCIONES y su render abajo.
+// Para agregar una sección nueva, agrega una entrada a SECCIONES y su render abajo.
 const SECCIONES = [
+  { id: "solicitudes", texto: "Solicitudes de publicación" },
   { id: "usuarios", texto: "Usuarios" },
+  { id: "permisos", texto: "Permisos de publicación" },
   { id: "instituciones", texto: "Instituciones" },
   { id: "carreras", texto: "Carreras" },
   { id: "roles", texto: "Roles" },
@@ -21,7 +24,7 @@ const TIPOS_INSTITUCION = [
 ];
 
 export default function PanelAdmin() {
-  const [seccion, setSeccion] = useState("usuarios");
+  const [seccion, setSeccion] = useState("solicitudes");
   const [instituciones, setInstituciones] = useState([]);
 
   // Las carreras necesitan la lista de instituciones para el select y para mostrar el nombre
@@ -56,7 +59,11 @@ export default function PanelAdmin() {
         ))}
       </div>
 
+      {seccion === "solicitudes" && <BuzonSolicitudes />}
+
       {seccion === "usuarios" && <TablaUsuarios />}
+
+      {seccion === "permisos" && <PermisosPublicacion />}
 
       {seccion === "instituciones" && (
         <CrudCatalogo

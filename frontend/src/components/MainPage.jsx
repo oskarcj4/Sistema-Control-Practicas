@@ -1,6 +1,7 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { apiFetch } from "../api/generic-api";
 import { AuthContext } from "../context/AuthContext";
+import BuzonNotificaciones from "./BuzonNotificaciones";
 import Feed from "./Feed";
 import MisOfertas from "./MisOfertas";
 import { MisPostulaciones } from "./MisPostulaciones";
@@ -18,6 +19,7 @@ const PESTANAS = [
   { id: "nueva-oferta", texto: "Nueva Oferta" },
   { id: "solicitud-publicacion", texto: "Solicitud de Publicación" },
   { id: "admin", texto: "Panel de Administración" },
+  { id: "buzon", texto: "Buzón" },
   { id: "perfil", texto: "Mi Perfil" },
 ];
 
@@ -26,49 +28,61 @@ export default function MainPage() {
   const [pestanaActiva, setPestanaActiva] = useState("feed");
   const [notificaciones, setNotificaciones] = useState([]);
 
-  // Cargar notificaciones del usuario logueado
-  useEffect(() => {
-    if (!usuario?.id) return;
-    const controller = new AbortController();
+  const usuarioId = usuario?.id;
 
-    async function cargarNotificaciones() {
-      try {
-        const res = await apiFetch(`notificaciones.php?usuario_id=${usuario.id}`, {
-          signal: controller.signal,
-        });
-        setNotificaciones(res.data || []);
-      } catch (err) {
-        if (err.name === "AbortError") return;
-        // Ignorar errores silenciosos de sondeo
-      }
+  // Notificaciones del usuario logueado (GET sin usuario_id = las propias).
+  // MainPage es dueño de la lista: la campana y el buzón leen el mismo estado.
+  const cargarNotificaciones = useCallback(async (signal) => {
+    try {
+      const res = await apiFetch("notificaciones.php", { signal });
+      setNotificaciones(res.data || []);
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      // Errores del sondeo se ignoran: se reintenta en el siguiente ciclo
     }
+  }, []);
 
-    cargarNotificaciones();
-    const intervalo = setInterval(cargarNotificaciones, 25000);
+  useEffect(() => {
+    if (!usuarioId) return;
+    const controller = new AbortController();
+    cargarNotificaciones(controller.signal);
+    const intervalo = setInterval(() => cargarNotificaciones(controller.signal), 25000);
     return () => {
       controller.abort();
       clearInterval(intervalo);
     };
-  }, [usuario?.id]);
+  }, [usuarioId, cargarNotificaciones]);
 
-  // Marcar una notificación como leída al hacer clic en ella
-  async function handleMarcarLeida(notif) {
-    if (Number(notif.leido) === 1) return;
+  // PUT accion=leer: marca una como leída (1) o no leída (0)
+  async function marcarLeida(notif, leido = 1) {
+    if (Number(notif.leido) === leido) return;
     try {
       await apiFetch("notificaciones.php", {
         method: "PUT",
-        body: {
-          id: notif.id,
-          titulo: notif.titulo,
-          mensaje: notif.mensaje,
-          leido: 1,
-        },
+        body: { accion: "leer", id: notif.id, leido },
       });
-      setNotificaciones((prev) =>
-        prev.map((n) => (n.id === notif.id ? { ...n, leido: 1 } : n))
-      );
+      setNotificaciones((prev) => prev.map((n) => (n.id === notif.id ? { ...n, leido } : n)));
     } catch (err) {
       console.error("Error al marcar notificación:", err);
+    }
+  }
+
+  // PUT accion=leer_todas: el backend usa el usuario de la sesión
+  async function marcarTodas() {
+    try {
+      await apiFetch("notificaciones.php", { method: "PUT", body: { accion: "leer_todas" } });
+      setNotificaciones((prev) => prev.map((n) => ({ ...n, leido: 1 })));
+    } catch (err) {
+      console.error("Error al marcar notificaciones:", err);
+    }
+  }
+
+  async function eliminarNotificacion(notif) {
+    try {
+      await apiFetch(`notificaciones.php?id=${notif.id}`, { method: "DELETE" });
+      setNotificaciones((prev) => prev.filter((n) => n.id !== notif.id));
+    } catch (err) {
+      console.error("Error al eliminar notificación:", err);
     }
   }
 
@@ -79,7 +93,9 @@ export default function MainPage() {
         pestanaActiva={pestanaActiva}
         onCambiarPestana={setPestanaActiva}
         notificaciones={notificaciones}
-        onClickNotificacion={handleMarcarLeida}
+        onClickNotificacion={(n) => marcarLeida(n, 1)}
+        onMarcarTodas={marcarTodas}
+        onVerBuzon={() => setPestanaActiva("buzon")}
       />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
@@ -100,6 +116,15 @@ export default function MainPage() {
         )}
 
         {pestanaActiva === "admin" && <PanelAdmin />}
+
+        {pestanaActiva === "buzon" && (
+          <BuzonNotificaciones
+            notificaciones={notificaciones}
+            onMarcarLeida={marcarLeida}
+            onMarcarTodas={marcarTodas}
+            onEliminar={eliminarNotificacion}
+          />
+        )}
 
         {pestanaActiva === "perfil" && <PerfilPage />}
       </main>

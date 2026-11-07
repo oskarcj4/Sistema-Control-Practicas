@@ -8,6 +8,10 @@ import {
 } from "../helpers/estilos";
 import BotonConfirmar from "./ui/BotonConfirmar";
 
+// Documento de respaldo: PDF o imagen, hasta 5 MB (mismo límite que UPLOAD_MAX_MB del backend)
+const FORMATOS_RESPALDO = ".pdf,.jpg,.jpeg,.png";
+const MAX_MB_RESPALDO = 5;
+
 export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
   const { usuario } = useContext(AuthContext);
 
@@ -22,11 +26,21 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
   const datosIniciales = {
     nombre_organizacion_proyecto: "",
     descripcion_actividades: "",
-    documento_respaldo_url: "",
   };
 
   const [form, setForm] = useState(datosIniciales);
   const [errores, setErrores] = useState({});
+  // Archivo nuevo elegido (File) y, al editar, si se quiere quitar el adjunto actual
+  const [archivo, setArchivo] = useState(null);
+  const [quitarDocumento, setQuitarDocumento] = useState(false);
+  // input type=file no se puede vaciar con value: se remonta cambiando su key
+  const [claveArchivo, setClaveArchivo] = useState(0);
+
+  function limpiarArchivo() {
+    setArchivo(null);
+    setQuitarDocumento(false);
+    setClaveArchivo((k) => k + 1);
+  }
 
   // Cargar si el usuario ya tiene solicitudes previas
   useEffect(() => {
@@ -73,10 +87,12 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
         "Describe las actividades con al menos 10 caracteres para que el administrador pueda evaluarla";
     }
 
-    if (datos.documento_respaldo_url && datos.documento_respaldo_url.trim() !== "") {
-      const url = datos.documento_respaldo_url.trim();
-      if (!/^https?:\/\//i.test(url)) {
-        e.documento_respaldo_url = "La URL debe comenzar con http:// o https://";
+    if (archivo) {
+      const extension = archivo.name.split(".").pop().toLowerCase();
+      if (!["pdf", "jpg", "jpeg", "png"].includes(extension)) {
+        e.documento_respaldo = "Formato no permitido. Usa PDF, JPG o PNG.";
+      } else if (archivo.size > MAX_MB_RESPALDO * 1024 * 1024) {
+        e.documento_respaldo = `El archivo no debe superar ${MAX_MB_RESPALDO} MB.`;
       }
     }
 
@@ -113,24 +129,24 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
     try {
       setEnviando(true);
 
-      // usuario_id no se envía: el backend lo toma de la sesión.
-      const payload = {
-        nombre_organizacion_proyecto: form.nombre_organizacion_proyecto.trim(),
-        descripcion_actividades: form.descripcion_actividades.trim(),
-        documento_respaldo_url: form.documento_respaldo_url.trim() || "",
-      };
+      // multipart/form-data: campos + archivo opcional. usuario_id lo toma el backend de la sesión.
+      const fd = new FormData();
+      fd.append("nombre_organizacion_proyecto", form.nombre_organizacion_proyecto.trim());
+      fd.append("descripcion_actividades", form.descripcion_actividades.trim());
+      if (archivo) {
+        fd.append("documento_respaldo", archivo);
+      }
 
       if (editandoId) {
-        await apiFetch("solicitudes_publicacion.php", {
-          method: "PUT",
-          body: { ...payload, id: editandoId },
-        });
+        fd.append("accion", "actualizar");
+        fd.append("id", String(editandoId));
+        if (quitarDocumento && !archivo) {
+          fd.append("quitar_documento", "1");
+        }
+        await apiFetch("solicitudes_publicacion.php", { method: "POST", body: fd });
         setMensaje({ tipo: "ok", texto: "Solicitud actualizada correctamente." });
       } else {
-        await apiFetch("solicitudes_publicacion.php", {
-          method: "POST",
-          body: payload,
-        });
+        await apiFetch("solicitudes_publicacion.php", { method: "POST", body: fd });
         setMensaje({
           tipo: "ok",
           texto:
@@ -139,6 +155,7 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
       }
 
       setForm(datosIniciales);
+      limpiarArchivo();
       setMostrarFormNuevo(false);
       setEditandoId(null);
 
@@ -168,8 +185,8 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
     setForm({
       nombre_organizacion_proyecto: solicitudExistente.nombre_organizacion_proyecto || "",
       descripcion_actividades: solicitudExistente.descripcion_actividades || "",
-      documento_respaldo_url: solicitudExistente.documento_respaldo_url || "",
     });
+    limpiarArchivo();
     setEditandoId(solicitudExistente.id);
     setMostrarFormNuevo(true);
   }
@@ -273,7 +290,7 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-indigo-600 underline hover:text-indigo-800"
                 >
-                  🔗 Ver documento o enlace provisto
+                  📎 Ver documento de respaldo
                 </a>
               </p>
             </div>
@@ -327,6 +344,7 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
               onClick={() => {
                 setEditandoId(null);
                 setForm(datosIniciales);
+                limpiarArchivo();
                 setMostrarFormNuevo(true);
               }}
               className="cursor-pointer rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700"
@@ -415,30 +433,49 @@ export default function SolicitudPublicacionForm({ onSolicitudEnviada }) {
           )}
         </div>
 
-        {/* Documento o Enlace de Respaldo */}
+        {/* Documento de respaldo (archivo) */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-            Enlace a documento de respaldo (Opcional)
+            Documento de respaldo (Opcional)
           </label>
           <input
-            type="url"
-            name="documento_respaldo_url"
-            value={form.documento_respaldo_url}
-            onChange={handleChange}
-            placeholder="https://ejemplo.com/carta-presentacion.pdf o sitio web institucional"
-            className={`mt-1 w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-1 ${
-              errores.documento_respaldo_url
-                ? "border-red-400 focus:border-red-500 focus:ring-red-500"
-                : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-            }`}
+            key={claveArchivo}
+            type="file"
+            name="documento_respaldo"
+            accept={FORMATOS_RESPALDO}
+            onChange={(e) => {
+              setArchivo(e.target.files?.[0] || null);
+              setErrores((prev) => {
+                const copia = { ...prev };
+                delete copia.documento_respaldo;
+                return copia;
+              });
+            }}
+            className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
           />
           <p className="mt-1 text-xs text-slate-400">
-            Puedes agregar un enlace público a una carta de presentación, portafolio o sitio web oficial.
+            Carta de presentación, constancia u otro documento. PDF, JPG o PNG, máximo {MAX_MB_RESPALDO} MB.
           </p>
-          {errores.documento_respaldo_url && (
-            <p className="mt-1 text-xs font-medium text-red-500">
-              {errores.documento_respaldo_url}
-            </p>
+          {editandoId && solicitudExistente?.documento_respaldo_url && !archivo && (
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={quitarDocumento}
+                onChange={(e) => setQuitarDocumento(e.target.checked)}
+              />
+              Quitar el documento actual
+              <a
+                href={solicitudExistente.documento_respaldo_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-600 underline"
+              >
+                (ver)
+              </a>
+            </label>
+          )}
+          {errores.documento_respaldo && (
+            <p className="mt-1 text-xs font-medium text-red-500">{errores.documento_respaldo}</p>
           )}
         </div>
 

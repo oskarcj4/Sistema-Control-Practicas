@@ -8,8 +8,7 @@ import {
   TEXTO_MODALIDAD,
   formatearFecha,
 } from "../helpers/estilos";
-import DetalleModal from "./DetalleModal";
-import GestionPostulantes from "./GestionPostulantes";
+import PostulantesVentana from "./PostulantesVentana";
 import NuevaOfertaForm from "./NuevaOfertaForm";
 import BotonConfirmar from "./ui/BotonConfirmar";
 import EstadoVacio from "./ui/EstadoVacio";
@@ -31,6 +30,9 @@ export default function MisOfertas({ onNuevaOferta }) {
   const [editando, setEditando] = useState(null);
   const [verPostulantes, setVerPostulantes] = useState(null);
   const [procesandoId, setProcesandoId] = useState(null);
+
+  // Estable para que el listener de Escape de la ventana no se registre en cada render
+  const cerrarPostulantes = useCallback(() => setVerPostulantes(null), []);
 
   const cargar = useCallback(
     async (signal) => {
@@ -204,9 +206,7 @@ export default function MisOfertas({ onNuevaOferta }) {
       )}
 
       {verPostulantes && (
-        <DetalleModal oportunidad={verPostulantes} onCerrar={() => setVerPostulantes(null)}>
-          <GestionPostulantes oportunidad={verPostulantes} />
-        </DetalleModal>
+        <PostulantesVentana oportunidad={verPostulantes} onCerrar={cerrarPostulantes} />
       )}
     </div>
   );

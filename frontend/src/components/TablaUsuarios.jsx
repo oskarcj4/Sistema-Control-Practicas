@@ -7,7 +7,7 @@ import EstadoVacio from "./ui/EstadoVacio";
 import MensajeError from "./ui/MensajeError";
 import Spinner from "./ui/Spinner";
 
-// T15 - Tabla de usuarios del sistema (vista del Administrador).
+// Tabla de usuarios del sistema (vista del Administrador).
 // Solo dibuja. La carga (GET usuarios.php) y el PUT de suspender los haces tú.
 //
 // Props:
