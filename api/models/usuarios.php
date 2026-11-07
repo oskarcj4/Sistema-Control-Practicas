@@ -42,6 +42,56 @@ class Usuarios {
         $this->response = $response;
     }
 
+    public function changePassword(array $arrayData) {
+        $password_actual = trim($arrayData["password_actual"]);
+        $password_nueva = trim($arrayData["password_nueva"]);
+        $password_nueva_confirmacion = trim($arrayData["password_nueva_confirmacion"]);
+        $id            = (int)($arrayData["id"] ?? 0);
+        $estado_cuenta = trim($arrayData["estado_cuenta"] ?? 'activo');
+
+        if ($id <= 0) {
+            $this->response->error("El ID es invalido", -1, 400);
+        }
+
+        if (!in_array($estado_cuenta, self::ESTADOS_CUENTA, true)) {
+            $this->response->error("El estado de la cuenta no es valido", -1, 400);
+        }
+
+        if (strlen($password_actual) < 8) {
+            $this->response->error("Contraseña Ilegal", -1, 400);
+        }
+        if (strlen($password_nueva) < 8 || strlen($password_nueva_confirmacion) < 8) {
+            $this->response->error("La contraseña nueva debe tener al menos 8 caracteres.", -1, 400);
+        }
+        if($password_actual !== $password_nueva_confirmacion) {
+            $this->response->error("La contraseñas no son iguales.", -1, 400);
+        }
+
+        try{
+        $query = "SELECT u.password_hash FROM usuarios u WHERE u.id= ?";
+        $stmt = $this->connection->prepare($query);
+        $stmt->execute([$id]);
+        $password_hash = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch(PDOException $e) {
+            $this->response->error("Algo salio mal", -1, 500);
+        }
+
+        if (!password_verify($password_actual, $password_hash)) {
+            $this->response->error("Las contraseñas no coinciden.", -1, 400);
+        }
+
+        $newPasswordHash = password_hash($password_nueva, PASSWORD_DEFAULT);
+        try {
+            $queryInsert = "UPDATE usuarios SET password_hash = ? WHERE id = ?";
+            $stmt = $this->connection->prepare($queryInsert);
+            $stmt->execute([$newPasswordHash, $id]);
+        }catch(PDOException $e) {
+            $this->response->error("Algo salio mal", -1, 500);
+        }
+        $this->response->success([], "La contraseña se cambio correctamente!");
+    }
+
+
     # Mostrar todos los usuarios no eliminados (incluye suspendidos para que el admin los vea)
     public function findAll(){
         try {
@@ -223,7 +273,7 @@ class Usuarios {
                 $data['carnet'], $data['telefono'], $data['biografia']
             ]);
 
-            $id_user = (int)$stmt->lastInsertId();
+            $id_user = (int)$stmt->lastInsertId(); // El IDE lo marca como error, no quitar porque funciona.
 
             $stmt = $this->connection->prepare("INSERT INTO asignaciones_roles (id_usuario, id_rol) VALUES (?, ?)");
             $stmt->execute([$id_user, self::ROL_ESTUDIANTE]);
