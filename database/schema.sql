@@ -177,6 +177,7 @@ CREATE TABLE notificaciones (
     usuario_id INT NOT NULL,
     titulo VARCHAR(150) NOT NULL,
     mensaje TEXT NOT NULL,
+    enlace VARCHAR(255) NULL COMMENT 'Ruta del frontend (#/...) que abre la notificación',
     leido TINYINT(1) NOT NULL DEFAULT 0,
     fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
     estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1: activo, 0: inactivo (soft delete)',
