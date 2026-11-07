@@ -36,6 +36,10 @@ if ($auth_data !== null) {
     if ($method === 'GET' && !$esAdmin && (int)($_GET['id'] ?? 0) !== $propioId && !$esBusqueda) {
         Response::invalidAccess();
     }
+    # Permisos de publicación: solo admin
+    if (!$esAdmin && (isset($_GET['publicadores']) || ($method === 'PUT' && inputString($data, 'accion') === 'permiso_publicar'))) {
+        Response::invalidAccess();
+    }
     if ($method === 'PUT' && !$esAdmin) {
         if ((int)inputString($data, 'id', '0') !== $propioId) {
             Response::invalidAccess();
@@ -58,7 +62,9 @@ try {
             $rol_id  = (int)($_GET['rol_id'] ?? 0);
             $termino = trim($_GET['q'] ?? $_GET['buscar'] ?? '');
 
-            if ($termino !== '') {
+            if (isset($_GET['publicadores'])) {
+                $usuario->findPublicadores();
+            } elseif ($termino !== '') {
                 $usuario->search($termino, $esAdmin);
             } elseif ($id > 0) {
                 $usuario->findById($id);
@@ -88,6 +94,17 @@ try {
             break;
 
         case 'PUT':
+            # accion=permiso_publicar { id, autorizar: 1|0, motivo, quitar_reclutador: 1|0, cerrar_ofertas: 1|0 }
+            if (inputString($data, 'accion') === 'permiso_publicar') {
+                $usuario->cambiarPermisoPublicar(
+                    (int)inputString($data, 'id', '0'),
+                    inputString($data, 'autorizar') === '1',
+                    inputString($data, 'motivo'),
+                    inputString($data, 'quitar_reclutador') === '1',
+                    inputString($data, 'cerrar_ofertas') === '1'
+                );
+                break;
+            }
             $usuario->update([
                 'id'             => inputString($data, 'id'),
                 'username'       => inputString($data, 'username'),

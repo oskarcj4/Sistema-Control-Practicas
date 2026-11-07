@@ -22,6 +22,24 @@ $auth_data = requireAuth($method === 'GET' ? [] : [1, 2, 3]);
 # POST/PUT/QUERY: valida Content-Type y lee el JSON una sola vez
 $data = readJsonInput($method);
 
+/**
+ * Institución con la que se publica la oferta.
+ * El admin elige cualquiera; el resto publica siempre con la institución de su perfil
+ * (se lee de la BD, no de la cookie ni del cuerpo).
+ */
+function institucionDeLaOferta(PDO $connection, array $auth, array $data): string
+{
+    if (esAdmin($auth)) {
+        return inputString($data, 'institucion_id');
+    }
+    $fila = filaUnica($connection, "SELECT institucion_id FROM usuarios WHERE id = ?", [(int)$auth['id']]);
+    $institucion_id = (int)($fila['institucion_id'] ?? 0);
+    if ($institucion_id <= 0) {
+        Response::error("Tu perfil no tiene institución asignada. Pide a un administrador que te asigne una.", -1, 400);
+    }
+    return (string)$institucion_id;
+}
+
 try {
     $oportunidad = new Oportunidades($connection, $response);
 
@@ -34,6 +52,9 @@ try {
             $modalidad  = trim($_GET['modalidad'] ?? '');
             $limit = (int) ($_GET["limit"] ?? 20);
             $cursor= (int) ($_GET["cursor"] ?? 0);
+            $q     = trim((string)($_GET['q'] ?? ''));
+            # solo_mias=1 -> el feed muestra solo las ofertas del usuario de la sesión
+            $solo_mias = trim($_GET['solo_mias'] ?? '') === '1' ? (int)$auth_data['id'] : 0;
 
             if ($id > 0) {
                 $oportunidad->findById($id);
@@ -42,7 +63,7 @@ try {
             } elseif ($todas === '1') {
                 $oportunidad->findAll();
             } else {
-                $oportunidad->feed($cursor, $carrera_id, $modalidad, $limit);
+                $oportunidad->feed($cursor, $carrera_id, $modalidad, $limit, $q, $solo_mias);
             }
             break;
 
@@ -51,7 +72,7 @@ try {
                 'titulo'            => inputString($data, 'titulo'),
                 'descripcion'       => inputString($data, 'descripcion'),
                 'requisitos'        => inputString($data, 'requisitos'),
-                'institucion_id'    => inputString($data, 'institucion_id'),
+                'institucion_id'    => institucionDeLaOferta($connection, $auth_data, $data),
                 'carrera_id'        => inputString($data, 'carrera_id'),
                 'modalidad'         => inputString($data, 'modalidad', 'presencial'),
                 'ubicacion'         => inputString($data, 'ubicacion'),
@@ -69,7 +90,7 @@ try {
                 'titulo'             => inputString($data, 'titulo'),
                 'descripcion'        => inputString($data, 'descripcion'),
                 'requisitos'         => inputString($data, 'requisitos'),
-                'institucion_id'     => inputString($data, 'institucion_id'),
+                'institucion_id'     => institucionDeLaOferta($connection, $auth_data, $data),
                 'carrera_id'         => inputString($data, 'carrera_id'),
                 'modalidad'          => inputString($data, 'modalidad', 'presencial'),
                 'ubicacion'          => inputString($data, 'ubicacion'),
