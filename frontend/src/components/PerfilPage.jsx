@@ -9,6 +9,7 @@ import {
   formatearFecha,
   obtenerRoles,
 } from "../helpers/estilos";
+import CambiarPasswordForm from "./CambiarPasswordForm";
 import PerfilForm from "./PerfilForm";
 import MensajeError from "./ui/MensajeError";
 import Spinner from "./ui/Spinner";
@@ -22,6 +23,7 @@ export default function PerfilPage() {
   const [editando, setEditando] = useState(false);
   const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [mostrarCambioPassword, setMostrarCambioPassword] = useState(false);
 
   async function cargarPerfil(signal) {
     if (!usuario?.id) return;
@@ -80,6 +82,60 @@ export default function PerfilPage() {
 
   const iniciales = `${perfil.nombre?.charAt(0) || ""}${perfil.apellido?.charAt(0) || ""}`.toUpperCase() || "U";
 
+  const modales = (
+    <>
+        {mostrarCambioPassword && (
+          <CambiarPasswordForm onCerrar={() => setMostrarCambioPassword(false)} />
+        )}
+
+        {/* Modal de confirmación para Soft Delete */}
+        {mostrarModalEliminar && (
+          <div
+            onClick={() => setMostrarModalEliminar(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            >
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl">
+                ⚠️
+              </div>
+
+              <h3 className="mt-4 text-center text-lg font-bold text-slate-900">
+                ¿Eliminar tu cuenta?
+              </h3>
+
+              <p className="mt-2 text-center text-sm text-slate-600">
+                Tu cuenta pasará a estado inactivo (borrado lógico). Ya no podrás iniciar sesión ni
+                acceder a tus postulaciones. Esta acción es definitiva.
+              </p>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalEliminar(false)}
+                  disabled={eliminando}
+                  className="flex-1 cursor-pointer rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleEliminarCuenta}
+                  disabled={eliminando}
+                  className="flex-1 cursor-pointer rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  {eliminando ? "Eliminando..." : "Sí, eliminar cuenta"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+    </>
+  );
+
   // Si el usuario presionó "Editar Perfil", mostramos el formulario actual
   if (editando) {
     return (
@@ -102,6 +158,26 @@ export default function PerfilPage() {
             cargarPerfil();
           }}
         />
+
+        <div className="flex flex-wrap justify-center gap-3 rounded-2xl bg-white p-4 shadow">
+          <button
+            type="button"
+            onClick={() => setMostrarCambioPassword(true)}
+            className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            🔑 Cambiar contraseña
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMostrarModalEliminar(true)}
+            className="flex cursor-pointer items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+          >
+            🗑️ Eliminar cuenta
+          </button>
+        </div>
+
+        {modales}
       </div>
     );
   }
@@ -147,14 +223,6 @@ export default function PerfilPage() {
                 className="flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-indigo-700"
               >
                 ✏️ Editar Perfil
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMostrarModalEliminar(true)}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100"
-              >
-                🗑️ Eliminar cuenta
               </button>
             </div>
           </div>
@@ -239,51 +307,7 @@ export default function PerfilPage() {
         </div>
       </div>
 
-      {/* Modal de confirmación para Soft Delete */}
-      {mostrarModalEliminar && (
-        <div
-          onClick={() => setMostrarModalEliminar(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl">
-              ⚠️
-            </div>
-
-            <h3 className="mt-4 text-center text-lg font-bold text-slate-900">
-              ¿Eliminar tu cuenta?
-            </h3>
-
-            <p className="mt-2 text-center text-sm text-slate-600">
-              Tu cuenta pasará a estado inactivo (borrado lógico). Ya no podrás iniciar sesión ni
-              acceder a tus postulaciones. Esta acción es definitiva.
-            </p>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setMostrarModalEliminar(false)}
-                disabled={eliminando}
-                className="flex-1 cursor-pointer rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={handleEliminarCuenta}
-                disabled={eliminando}
-                className="flex-1 cursor-pointer rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                {eliminando ? "Eliminando..." : "Sí, eliminar cuenta"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {modales}
     </div>
   );
 }
