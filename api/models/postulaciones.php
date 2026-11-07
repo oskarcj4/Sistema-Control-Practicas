@@ -364,7 +364,7 @@ class Postulaciones {
             $titulo = $estado_postulacion === 'aceptada' ? "🎉 ¡Postulación Aceptada!" : "Actualización de tu postulación";
             $mensaje = $comentario !== ''
                 ? $comentario
-                : "Tu postulación para \"{$postulacion['titulo']}\" cambió a: {$estado_postulacion}.";
+                : "Tu postulación para \"{$postulacion['titulo']}\" cambió a: " . str_replace('_', ' ', $estado_postulacion) . ".";
             $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
             $stmt->execute([(int)$postulacion['estudiante_id'], $titulo, $mensaje]);
 

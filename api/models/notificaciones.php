@@ -128,6 +128,22 @@ class Notificaciones {
         }
     }
 
+    # Marcar una notificación como leída / no leída sin tocar título ni mensaje
+    public function markRead(int $id, int $leido){
+        if ($id <= 0) {
+            $this->response->error("El ID es invalido", -1, 400);
+        }
+
+        try {
+            $stmt = $this->connection->prepare("UPDATE notificaciones SET leido = ? WHERE id = ? AND estado = 1");
+            $stmt->execute([$leido === 1 ? 1 : 0, $id]);
+            $this->response->success("Notificación actualizada");
+        } catch (PDOException $e) {
+            Response::error("Error", -1, 500);
+            //Response::debugError($e);
+        }
+    }
+
     # Marcar como leídas todas las de un usuario
     public function markAllRead(int $usuario_id){
         if ($usuario_id <= 0) {

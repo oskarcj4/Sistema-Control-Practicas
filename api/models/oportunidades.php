@@ -36,10 +36,23 @@ class Oportunidades {
     }
 
     # Feed: oportunidades activas y vigentes, filtros opcionales por carrera y modalidad
-    public function feed(int $cursor=0, int $carrera_id = 0, string $modalidad = '', $limit=20){
+    /**
+     * Feed de ofertas activas con filtros en servidor y paginación por cursor.
+     *   $cursor     -> id de la última oferta recibida (0 = primera página)
+     *   $carrera_id -> ofertas de esa carrera o abiertas a cualquier carrera
+     *   $modalidad  -> presencial | remoto | hibrido
+     *   $q          -> texto libre: título, descripción, requisitos, ubicación o institución
+     *   $creado_por -> solo ofertas de ese usuario (toggle "Mis ofertas")
+     *   $limit      -> tamaño de página (1 a 50)
+     * El cliente pide la siguiente página con cursor = id de la última fila;
+     * si recibe menos de $limit filas, ya no hay más.
+     */
+    public function feed(int $cursor=0, int $carrera_id = 0, string $modalidad = '', $limit=20, string $q = '', int $creado_por = 0){
         if ($modalidad !== '' && !in_array($modalidad, self::MODALIDADES, true)) {
             $this->response->error("La modalidad no es valida", -1, 400);
         }
+        $limit = max(1, min(50, (int)$limit));
+        $q = mb_substr(trim($q), 0, 100);
         // Paginacion por cursor
         // O(1)
         // El cliente envia un puntero con el ultimo registro que visito.
@@ -66,6 +79,19 @@ class Oportunidades {
                 $query .= " AND o.modalidad = ?";
                 $params[] = $modalidad;
             }
+
+            if ($q !== '') {
+                # Comodines escapados: "%" o "_" escritos por el usuario se buscan literal
+                $like = '%' . addcslashes($q, '%_\\') . '%';
+                $query .= " AND (o.titulo LIKE ? OR o.descripcion LIKE ? OR o.requisitos LIKE ? OR o.ubicacion LIKE ? OR i.nombre LIKE ?)";
+                array_push($params, $like, $like, $like, $like, $like);
+            }
+
+            if ($creado_por > 0) {
+                $query .= " AND o.creado_por = ?";
+                $params[] = $creado_por;
+            }
+
             if ($cursor > 0) {                     # primera pagina: sin cursor
                 $query .= " AND o.id < ?";
                 $params[] = $cursor;
@@ -152,12 +178,12 @@ class Oportunidades {
         }
 
         try {
-            # es_admin: 1 si tiene el rol administrador activo en asignaciones_roles
+            # es_admin: 1 si tiene rol administrador o reclutador activo (ambos publican sin solicitud)
             $stmt = $this->connection->prepare("SELECT u.autorizado_publicar,
                                                        EXISTS (SELECT 1 FROM asignaciones_roles ar
                                                                INNER JOIN roles r ON r.id = ar.id_rol
                                                                WHERE ar.id_usuario = u.id AND ar.estado = 1
-                                                                 AND r.nombre = 'administrador') AS es_admin
+                                                                 AND r.nombre IN ('administrador', 'reclutador')) AS es_admin
                                                 FROM usuarios u
                                                 WHERE u.id = ? AND u.estado = 1 AND u.estado_cuenta = 'activo'");
             $stmt->execute([$creado_por]);

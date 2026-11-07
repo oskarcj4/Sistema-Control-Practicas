@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . "/../core/storage.php";
+
 class SolicitudesPublicacion {
     private Connection $connection;
     private Response $response;
@@ -239,7 +241,7 @@ class SolicitudesPublicacion {
                 $this->response->error("Solo un administrador puede revisar solicitudes", -1, 403);
             }
 
-            $stmt = $this->connection->prepare("SELECT usuario_id FROM solicitudes_publicacion WHERE id = ? AND estado = 1 AND estado_solicitud = 'pendiente'");
+            $stmt = $this->connection->prepare("SELECT usuario_id, nombre_organizacion_proyecto FROM solicitudes_publicacion WHERE id = ? AND estado = 1 AND estado_solicitud = 'pendiente'");
             $stmt->execute([$id]);
             $solicitud = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$solicitud) {
@@ -258,6 +260,21 @@ class SolicitudesPublicacion {
                 $stmt = $this->connection->prepare("UPDATE usuarios SET autorizado_publicar = 1 WHERE id = ?");
                 $stmt->execute([(int)$solicitud['usuario_id']]);
             }
+
+            # Avisar al solicitante del resultado (misma transacción: o se guarda todo o nada)
+            $nombreProyecto = $solicitud['nombre_organizacion_proyecto'];
+            if ($estado_solicitud === 'aprobada') {
+                $titulo  = "✅ Solicitud de publicación aprobada";
+                $mensaje = "Tu solicitud para '{$nombreProyecto}' fue aprobada. Ya puedes publicar ofertas.";
+            } else {
+                $titulo  = "Solicitud de publicación rechazada";
+                $mensaje = "Tu solicitud para '{$nombreProyecto}' fue rechazada.";
+            }
+            if ($comentario_admin !== '') {
+                $mensaje .= " Comentario del administrador: {$comentario_admin}";
+            }
+            $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
+            $stmt->execute([(int)$solicitud['usuario_id'], $titulo, $mensaje]);
 
             $this->connection->commit();
 
@@ -310,9 +327,11 @@ class SolicitudesPublicacion {
             $this->response->error("La URL del documento no debe superar 255 caracteres", -1, 400);
         }
 
-        # Solo http/https: evita guardar enlaces "javascript:" que luego se pintan en el front
-        if ($documento_respaldo_url !== '' && (!filter_var($documento_respaldo_url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $documento_respaldo_url))) {
-            $this->response->error("La URL del documento no es valida", -1, 400);
+        # El adjunto lo sube el endpoint: solo se aceptan links de nuestro almacenamiento.
+        # Excepción: al editar se conserva el link ya guardado (solicitudes viejas con URL externa).
+        $conservado = !empty($arrayData['documento_conservado']);
+        if ($documento_respaldo_url !== '' && !$conservado && !Storage::esUrlPermitida($documento_respaldo_url)) {
+            $this->response->error("El documento no pertenece al almacenamiento del sistema", -1, 400);
         }
 
         return [

@@ -24,6 +24,17 @@ class Usuarios {
                             LEFT JOIN instituciones i ON i.id = u.institucion_id
                             LEFT JOIN carreras c ON c.id = u.carrera_id";
 
+    # Vista de permisos: datos básicos + de dónde sale el permiso + ofertas activas
+    private const SELECT_USUARIO_PERMISOS = "SELECT u.id, u.username, u.nombre, u.apellido, u.email,
+                                   i.nombre AS institucion, u.autorizado_publicar,
+                                   EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                            WHERE ar.id_usuario = u.id AND ar.estado = 1 AND ar.id_rol = 3) AS es_reclutador,
+                                   (SELECT COUNT(*) FROM oportunidades o
+                                     WHERE o.creado_por = u.id AND o.estado = 1 AND o.estado_oportunidad = 'activa') AS ofertas_activas,
+                                   u.estado_cuenta
+                            FROM usuarios u
+                            LEFT JOIN instituciones i ON i.id = u.institucion_id";
+
     public function __construct(Connection $connection, Response $response){
         $this->connection = $connection;
         $this->response = $response;
@@ -230,6 +241,111 @@ class Usuarios {
         } catch (PDOException $e) {
             if (($e->errorInfo[1] ?? 0) === 1062) {
                 $this->response->error("El username o el email ya están registrados", -1, 409);
+            }
+            Response::error("Error", -1, 500);
+            //Response::debugError($e);
+        }
+    }
+
+    /**
+     * Usuarios que hoy pueden publicar ofertas sin ser administradores:
+     * los autorizados por solicitud (autorizado_publicar = 1) y los que tienen rol reclutador.
+     * Incluye cuántas ofertas activas tiene cada uno.
+     */
+    public function findPublicadores(){
+        try {
+            $stmt = $this->connection->prepare(self::SELECT_USUARIO_PERMISOS . "
+                            WHERE u.estado = 1
+                              AND NOT EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                               WHERE ar.id_usuario = u.id AND ar.estado = 1 AND ar.id_rol = 2)
+                              AND (u.autorizado_publicar = 1
+                                   OR EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                               WHERE ar.id_usuario = u.id AND ar.estado = 1 AND ar.id_rol = 3))
+                            ORDER BY u.apellido, u.nombre");
+            $stmt->execute();
+            $this->response->success($stmt->fetchAll(PDO::FETCH_ASSOC));
+        } catch (PDOException $e) {
+            Response::error("Error", -1, 500);
+            //Response::debugError($e);
+        }
+    }
+
+    /**
+     * Da o quita el permiso de publicar ofertas (solo admin).
+     *
+     * Al revocar ($autorizar = false):
+     *   - autorizado_publicar = 0
+     *   - $quitarReclutador: desactiva también el rol reclutador (si no, seguiría publicando)
+     *   - $cerrarOfertas: pasa sus ofertas activas a "cancelada" (abuso)
+     * En ambos casos se notifica al usuario con el motivo. Todo va en una transacción.
+     */
+    public function cambiarPermisoPublicar(int $id, bool $autorizar, string $motivo, bool $quitarReclutador, bool $cerrarOfertas){
+        $motivo = trim($motivo);
+
+        if ($id <= 0) {
+            $this->response->error("El ID es invalido", -1, 400);
+        }
+        if (!$autorizar && mb_strlen($motivo) < 5) {
+            $this->response->error("Indica el motivo de la revocación (mínimo 5 caracteres)", -1, 400);
+        }
+
+        try {
+            $stmt = $this->connection->prepare("SELECT u.id,
+                                                       EXISTS (SELECT 1 FROM asignaciones_roles ar
+                                                                WHERE ar.id_usuario = u.id AND ar.estado = 1 AND ar.id_rol = 2) AS es_admin
+                                                FROM usuarios u WHERE u.id = ? AND u.estado = 1");
+            $stmt->execute([$id]);
+            $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$usuario) {
+                $this->response->error("Usuario no encontrado", -1, 404);
+            }
+            if ((int)$usuario['es_admin'] === 1) {
+                $this->response->error("Los administradores siempre pueden publicar; quita primero el rol de administrador", -1, 409);
+            }
+
+            $this->connection->beginTransaction();
+
+            $stmt = $this->connection->prepare("UPDATE usuarios SET autorizado_publicar = ? WHERE id = ?");
+            $stmt->execute([$autorizar ? 1 : 0, $id]);
+
+            $ofertasCanceladas = 0;
+            if (!$autorizar) {
+                if ($quitarReclutador) {
+                    $stmt = $this->connection->prepare("UPDATE asignaciones_roles SET estado = 0 WHERE id_usuario = ? AND id_rol = 3 AND estado = 1");
+                    $stmt->execute([$id]);
+                }
+                if ($cerrarOfertas) {
+                    $stmt = $this->connection->prepare("UPDATE oportunidades SET estado_oportunidad = 'cancelada'
+                                                        WHERE creado_por = ? AND estado = 1 AND estado_oportunidad = 'activa'");
+                    $stmt->execute([$id]);
+                    $ofertasCanceladas = $stmt->rowCount();
+                }
+            }
+
+            if ($autorizar) {
+                $titulo  = "✅ Ya puedes publicar ofertas";
+                $mensaje = "Un administrador te autorizó para publicar ofertas de prácticas.";
+            } else {
+                $titulo  = "Permiso de publicación revocado";
+                $mensaje = "Un administrador revocó tu permiso para publicar ofertas.";
+                if ($ofertasCanceladas > 0) {
+                    $mensaje .= " Tus ofertas activas ({$ofertasCanceladas}) fueron canceladas.";
+                }
+            }
+            if ($motivo !== '') {
+                $mensaje .= " Motivo: {$motivo}";
+            }
+            $stmt = $this->connection->prepare("INSERT INTO notificaciones (usuario_id, titulo, mensaje) VALUES (?, ?, ?)");
+            $stmt->execute([$id, $titulo, $mensaje]);
+
+            $this->connection->commit();
+
+            $this->response->success($autorizar
+                ? "Permiso de publicación otorgado"
+                : "Permiso revocado" . ($ofertasCanceladas > 0 ? ". Ofertas canceladas: {$ofertasCanceladas}" : ""));
+        } catch (PDOException $e) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
             }
             Response::error("Error", -1, 500);
             //Response::debugError($e);
